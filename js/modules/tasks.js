@@ -1,0 +1,551 @@
+/**
+ * ================================================================
+ * js/modules/tasks.js — وحدة المهام | نظام الحسام للمحاماة
+ * ================================================================
+ * Contains ALL Tasks-related functions extracted from index.html.
+ *
+ * PHASE 10 — SUB-PHASE 10.4 — Restore Rollout
+ * ----------------------------------------------------------------
+ * Additive-only addition on top of PHASE 9.5 below: a new
+ * `restoreTask(id)` function (see its own doc comment, next to
+ * `deleteTask()`), same Cases-piloted pattern (SUB-PHASE 10.3). No
+ * existing function in this file was changed. See
+ * docs/Restore_Rollout_Report.md for the full audit and verification
+ * evidence.
+ *
+ * PHASE 9 — SUB-PHASE 9.5 — Repository Integration (Tasks Module)
+ * ----------------------------------------------------------------
+ * This module now reads and writes through js/repositories/
+ * TasksRepository.js instead of the legacy global `data.tasks` array
+ * directly. Nothing else in the project was changed to make this
+ * happen: TasksRepository.js, Repository.js, DatabaseService.js and
+ * LocalStorageAdapter.js are all used exactly as PHASE 5/PHASE 8 left
+ * them (no edits, no imports of internals). This follows the same
+ * proven pattern used for the Documents module (SUB-PHASE 9.3) and the
+ * Sessions module (SUB-PHASE 9.4).
+ *
+ * WHY `data.tasks` STILL EXISTS BELOW
+ *   js/modules/dashboard.js (`data.tasks.filter(...)` / `.length` for
+ *   badges/upcoming-list) reads the global `data.tasks` array directly,
+ *   and this phase's mandate is "Modify ONLY tasks.js" — dashboard.js
+ *   may not be touched. So `data.tasks` is kept alive as a read-only
+ *   MIRROR of `TasksRepository.getAll()`, refreshed after every
+ *   Repository read/write this file performs. Every other module keeps
+ *   working unmodified and unaware that Tasks moved to the Repository.
+ *
+ * READ / WRITE SPLIT (this phase's rule)
+ *   - Reads (`renderTasks`) call the Repository's SYNCHRONOUS methods
+ *     only (`getAll()`, `search()`) — no unnecessary async.
+ *   - Writes (`saveTask`, `deleteTask`, `toggleTask`) are the ONLY
+ *     functions in this file that cross the async boundary, because
+ *     Repository.create()/update()/delete() are Promise-returning
+ *     (Repository Contract §3 — Validate -> Write Local -> Persist).
+ *     `toggleTask()` is a partial update (single field flip) and is
+ *     implemented as `TasksRepository.update(id, {'الحالة': ...})` —
+ *     TasksRepository deliberately does not expose a specialized
+ *     `toggleStatus()` operation (see TasksRepository.js file header
+ *     "TOGGLE" note), so a normal `update()` call is the correct,
+ *     already-available substitute.
+ *   - `editTask` stays 100% synchronous and unchanged: it only reads
+ *     the already-synced `data.tasks` mirror to pre-fill the modal,
+ *     exactly like before.
+ *
+ * INDEX -> RECORD -> ID TRANSLATION LAYER
+ *   The rendered HTML still embeds plain 0-based array indexes in its
+ *   `onclick="toggleTask(N)"` / `onclick="editTask(N)"` /
+ *   `onclick="deleteTask(N)"` attributes (index.html's row templates
+ *   were not changed, per this phase's rule "Do NOT change generated
+ *   HTML unless absolutely necessary"). Because
+ *   TasksRepository.search()/getAll() return CLONED records (not the
+ *   same object references `data.tasks` used to hold), the old
+ *   `data.tasks.indexOf(t)` reference-equality trick no longer works.
+ *   `resolveTaskIndex()` below is the smallest possible replacement: it
+ *   looks a record up in the current mirror by its identifier field
+ *   (`رقم_المهمة`) instead of by reference. `toggleTask(i)` /
+ *   `editTask(i)` / `deleteTask(i)` then resolve that same index back
+ *   to a record, and `toggleTask`/`deleteTask`/`saveTask` go one step
+ *   further and resolve the record to its `رقم_المهمة` id before
+ *   calling `TasksRepository.update()/delete()` (both take an id, not
+ *   an index).
+ *
+ * SOFT DELETE — OBSERVABLE BEHAVIOR NOTE
+ *   TasksRepository is configured with `softDelete: true` (unchanged,
+ *   not this phase's decision to make). `delete(id)` therefore keeps
+ *   the record in storage with a `deletedAt` stamp instead of
+ *   physically removing it, unlike the original `data.tasks.splice(i,1)`.
+ *   `getAll()`/`search()` both exclude soft-deleted records by default,
+ *   so nothing deleted ever reappears anywhere `data.tasks` is read
+ *   (this file, dashboard.js) — the UI-observable behavior is therefore
+ *   identical to a hard delete.
+ *
+ * IDENTIFIER GENERATION NOTE
+ *   The original inline `saveTask()` stamped
+ *   `obj['رقم_المهمة'] = obj['رقم_المهمة'] || uid();` on the plain
+ *   object before pushing/assigning it. `TasksRepository._resolveId()`
+ *   (js/repositories/TasksRepository.js) already replicates this exact
+ *   fallback internally on `create()` (generate only when absent), so
+ *   this module does not need to duplicate that stamp — `create(obj)`
+ *   assigns the id itself, exactly as `saveDocument()`/`saveSession()`
+ *   rely on their own Repositories to assign the id.
+ *
+ * SEARCH / FILTER — both UI behaviors
+ *   (`#searchTasks` free-text join, `#filterTaskPriority` exact-match on
+ *   `الأولوية`) are preserved bit-for-bit: `TasksRepository._matchesSearch()`
+ *   replicates the exact `Object.values(t).join(' ')` free-text join the
+ *   inline module used, and `renderTasks()` below passes the same
+ *   priority filter through the Repository's generic
+ *   `search({search, filter})` Query Model instead of doing it in plain
+ *   JS. No sort is applied — matching the original inline renderTasks(),
+ *   which never called `.sort()` (insertion order only). TasksRepository
+ *   does expose an additive `sort()` convenience method, but using it
+ *   here would change observable row order versus the original, so this
+ *   phase's "preserve identical behavior" rule means it is intentionally
+ *   NOT used in `renderTasks()`.
+ *
+ * Depends on (globals expected from index.html / prior scripts):
+ *   - data              : shared app data object  { tasks, cases, … }
+ *   - editIdx           : shared edit-index map   { tasks: -1 }
+ *   - ApiService        : api.js layer (replaces direct syncToSheets /
+ *                         syncDeleteToSheets calls)
+ *   - saveLocal()       : localStorage persistence helper
+ *   - toast()           : UI notification helper
+ *   - updateBadges()    : badge counter updater
+ *   - closeModal()      : modal close helper
+ *   - urgencyBadge()    : urgency badge builder   (from ui-utils.js)
+ *   - statusBadge()     : status badge builder    (from ui-utils.js)
+ *   - formatDate()      : date formatter          (from ui-utils.js)
+ *   - val()             : getElementById+.value   (from ui-utils.js)
+ *   - uid()             : unique-ID generator     (from ui-utils.js)
+ *   - collectForm()     : generic form-to-object  (from ui-utils.js)
+ *   - fillForm()        : generic object-to-form  (from ui-utils.js)
+ *   - TasksRepository   : js/repositories/TasksRepository.js
+ *                         (loaded the same dual Node/browser way every
+ *                         Repository file already loads its own
+ *                         dependencies)
+ *
+ * GAS Sheet name: 'المهام'
+ *
+ * Does NOT touch:
+ *   - CSS / HTML structure
+ *   - Other modules (cases, clients, sessions, documents, fees, …)
+ *   - Dashboard widgets (#statTasks, #dashTasks — owned by renderDashboard()
+ *     in index.html, since they read across multiple data slices)
+ *   - Google Apps Script backend
+ *   - Database / sheet structure
+ *   - ApiService internals
+ *   - js/core/Repository.js, DatabaseService.js, StorageAdapter.js,
+ *     LocalStorageAdapter.js, js/repositories/TasksRepository.js
+ * ================================================================
+ */
+
+'use strict';
+
+// ================================================================
+// FIELDS & MAP — tasks slice only (unchanged)
+// ================================================================
+
+var TASKS_FIELDS = [
+  'fTaskTitle',
+  'fTaskCaseNum',
+  'fTaskPriority',
+  'fTaskDue',
+  'fTaskStatus',
+  'fTaskNotes'
+];
+
+var TASKS_MAP = {
+  fTaskTitle:    'العنوان',
+  fTaskCaseNum:  'رقم_القضية',
+  fTaskPriority: 'الأولوية',
+  fTaskDue:      'الموعد_النهائي',
+  fTaskStatus:   'الحالة',
+  fTaskNotes:    'الملاحظات'
+};
+
+/**
+ * Identifier field name — must match TasksRepository's own
+ * TASKS_ID_FIELD constant exactly (js/repositories/TasksRepository.js,
+ * §1). Duplicated here rather than imported, same "depends only on its
+ * own declared dependency" discipline every Repository-integrated
+ * module already uses for its own local constants — this file's one
+ * declared new dependency is TasksRepository itself, not its internals.
+ */
+var TASKS_ID_FIELD = 'رقم_المهمة';
+
+// ================================================================
+// REPOSITORY WIRING — PHASE 9 / SUB-PHASE 9.5
+// ================================================================
+// Same dual Node/browser loading shape already used by every file under
+// js/repositories/ and js/core/: `require()` when running under Node
+// (module.exports exists — this is how js/tests/verify_tasks_
+// repository_integration.js loads this file), otherwise the browser
+// global `window.TasksRepository` (populated once index.html's
+// <script> tags load js/core/Repository.js, DatabaseService.js,
+// LocalStorageAdapter.js and js/repositories/TasksRepository.js ahead
+// of this file — adding those tags to index.html is explicitly out of
+// scope for this phase's "Modify ONLY tasks.js" mandate).
+
+var TasksRepositoryNS = (typeof module !== 'undefined' && module.exports)
+  ? require('../repositories/TasksRepository.js')
+  : (typeof window !== 'undefined' ? window : this);
+
+var TasksRepository = TasksRepositoryNS && TasksRepositoryNS.TasksRepository;
+
+if (typeof TasksRepository !== 'function') {
+  throw new Error(
+    'tasks.js requires js/repositories/TasksRepository.js to be ' +
+    'loaded first (TasksRepository class not found).'
+  );
+}
+
+/**
+ * The single TasksRepository instance this module talks to. Default
+ * construction (no config) wires it to the real DatabaseService +
+ * LocalStorageAdapter pair, reading/writing the exact same 'tasks'
+ * localStorage key `data.tasks` always used.
+ */
+var tasksRepository = new TasksRepository();
+
+/**
+ * Resolves once TasksRepository.open() has loaded its initial in-memory
+ * copy from storage (Repository Contract §11: Create -> Open -> Ready).
+ * Every write path awaits this before touching the Repository;
+ * renderTasks()/editTask() stay synchronous and simply no-op if called
+ * in the vanishingly small window before this resolves (see file header
+ * "READ / WRITE SPLIT").
+ */
+var tasksRepositoryReadyPromise = tasksRepository.open().then(function () {
+  syncTasksMirror();
+}).catch(function (err) {
+  // Surface the failure without throwing out of a top-level Promise
+  // chain (would otherwise be an unhandled rejection). renderTasks()
+  // guards on isReady() and simply shows nothing until this is fixed.
+  if (typeof console !== 'undefined' && console.error) {
+    console.error('TasksRepository failed to open:', err);
+  }
+});
+
+/**
+ * ensureTasksRepositoryReady() — awaited by every write path. open()
+ * itself is idempotent (Repository.prototype.open() returns
+ * immediately if already 'ready'/'busy'), so calling this more than
+ * once is always safe and cheap.
+ * @returns {Promise<void>}
+ */
+function ensureTasksRepositoryReady() {
+  if (tasksRepository.isReady()) return Promise.resolve();
+  return tasksRepositoryReadyPromise;
+}
+
+/**
+ * syncTasksMirror — refreshes the legacy global `data.tasks` array from
+ * the Repository's current state (soft-deleted records excluded, same
+ * as the Repository's own getAll() default). Called after open() and
+ * after every create/update/delete this module performs, so
+ * dashboard.js keeps seeing accurate data without being touched itself.
+ */
+function syncTasksMirror() {
+  data.tasks = tasksRepository.getAll();
+}
+
+/**
+ * resolveTaskIndex(list, record) — the index half of the "index ->
+ * record -> id" translation layer (see file header). Finds `record`'s
+ * position inside `list` by identifier equality (`رقم_المهمة`),
+ * replacing the old `data.tasks.indexOf(t)` reference-equality lookup
+ * that no longer works now that Repository reads return cloned objects.
+ * @param {Object[]} list
+ * @param {Object} record
+ * @returns {number} 0-based index, or -1 if not found.
+ */
+function resolveTaskIndex(list, record) {
+  var id = record ? record[TASKS_ID_FIELD] : undefined;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i][TASKS_ID_FIELD] === id) return i;
+  }
+  return -1;
+}
+
+// ================================================================
+// RENDER — عرض قائمة المهام
+// ================================================================
+
+/**
+ * renderTasks — renders the tasks list view.
+ * Reads: TasksRepository (search + getAll — both synchronous),
+ * searchTasks filter, filterTaskPriority filter.
+ * Writes to: #tasksListView, #tasksEmpty.
+ *
+ * NOTE: there is no separate searchTasks()/filterTasks() function in the
+ * original app — search and priority filtering are both read directly
+ * from the DOM (#searchTasks, #filterTaskPriority) and applied via the
+ * Repository's Query Model, exactly matching the original inline
+ * implementation's observable behavior.
+ */
+function renderTasks() {
+  // Defensive only — see tasksRepositoryReadyPromise's doc comment. In
+  // normal page load order this is always true by the time any
+  // onclick/oninput can fire, since open() resolves via microtasks that
+  // drain before the browser dispatches its first user-facing event.
+  if (!tasksRepository.isReady()) return;
+
+  var s  = val('searchTasks').toLowerCase();
+  var pr = val('filterTaskPriority');
+
+  syncTasksMirror();
+  var allTasks = data.tasks;
+
+  var queryModel = {};
+  if (s) queryModel.search = s;
+  if (pr) queryModel.filter = { 'الأولوية': pr };
+  var rows = tasksRepository.search(queryModel).items;
+
+  var c  = document.getElementById('tasksListView');
+  var em = document.getElementById('tasksEmpty');
+
+  if (!rows.length) {
+    c.innerHTML = '';
+    em.style.display = '';
+    return;
+  }
+  em.style.display = 'none';
+
+  var pm = { high: '&#128308;', medium: '&#128993;', low: '&#128994;' };
+
+  c.innerHTML = rows.map(function(t) {
+    var ri   = resolveTaskIndex(allTasks, t);
+    var done = t['الحالة'] === 'done';
+
+    return (
+      '<div class="task-item ' + (t['الأولوية'] || '') + '">' +
+        '<div class="task-check ' + (done ? 'done' : '') + '" onclick="toggleTask(' + ri + ')">' +
+          (done ? '&#10003;' : '') +
+        '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="task-text ' + (done ? 'done' : '') + '">' +
+            (pm[t['الأولوية']] || '') + '&nbsp;' + t['العنوان'] +
+          '</div>' +
+          '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:3px;">' +
+            (t['رقم_القضية'] ? '<span class="task-due">&#9878; ' + t['رقم_القضية'] + '</span>' : '') +
+            (t['الموعد_النهائي']
+              ? '<span class="task-due">' + urgencyBadge(t['الموعد_النهائي']) + ' ' + formatDate(t['الموعد_النهائي']) + '</span>'
+              : '') +
+            statusBadge(t['الحالة']) +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:5px;flex-shrink:0;">' +
+          '<button class="btn btn-ghost btn-sm btn-icon" onclick="editTask(' + ri + ')">&#9998;</button>' +
+          '<button class="btn btn-danger btn-sm btn-icon" onclick="deleteTask(' + ri + ')">&#128465;</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+}
+
+// ================================================================
+// CRUD — حفظ / تعديل / حذف / تبديل الحالة
+// ================================================================
+
+/**
+ * saveTask — validates, saves through TasksRepository, syncs to GAS.
+ * Replaces: inline saveTask() in index.html <script> block.
+ * ApiService.syncRow() replaces the original syncToSheets() call, same
+ * as before.
+ *
+ * Crosses the async boundary (Repository.create()/update() are
+ * Promise-returning) — the only reason this function is now `async`.
+ */
+async function saveTask() {
+  var t = document.getElementById('fTaskTitle').value.trim();
+  if (!t) {
+    toast('يرجى إدخال عنوان المهمة', 'error');
+    return;
+  }
+
+  await ensureTasksRepositoryReady();
+
+  var obj = collectForm('tasks');
+  // Note: obj['رقم_المهمة'] is intentionally NOT stamped here — see file
+  // header "IDENTIFIER GENERATION NOTE": TasksRepository.create()
+  // generates it internally (only when absent), exactly replicating the
+  // original `|| uid()` fallback. TasksRepository.update() always
+  // preserves the existing record's id regardless of what is in obj.
+  obj['تاريخ_الإنشاء'] = obj['تاريخ_الإنشاء'] || new Date().toISOString();
+
+  var idx = editIdx.tasks;
+  var result;
+
+  if (idx >= 0) {
+    var existing = data.tasks[idx];
+    var existingId = existing ? existing[TASKS_ID_FIELD] : null;
+    result = await tasksRepository.update(existingId, obj);
+  } else {
+    result = await tasksRepository.create(obj);
+  }
+
+  if (!result || !result.success) {
+    toast('حدث خطأ أثناء الحفظ', 'error');
+    return;
+  }
+
+  syncTasksMirror();
+
+  if (idx >= 0) {
+    toast('تم التحديث', 'success');
+  } else {
+    toast('تمت الإضافة', 'success');
+  }
+
+  saveLocal();
+  ApiService.syncRow('المهام', result.record, idx);   // replaces: if(API_URL)syncToSheets(...)
+  closeModal('modalTask');
+  renderTasks();
+  updateBadges();
+}
+
+/**
+ * editTask — opens the task modal pre-filled with existing data.
+ * Unchanged from before: purely a read of the (now Repository-backed)
+ * data.tasks mirror, so it stays fully synchronous — no Repository call
+ * needed here at all.
+ * @param {number} i - 0-based index in the data.tasks mirror.
+ */
+function editTask(i) {
+  editIdx.tasks = i;
+  fillForm('tasks', data.tasks[i]);
+  document.getElementById('modalTaskTitle').textContent = 'تعديل المهمة';
+  document.getElementById('modalTask').classList.add('open');
+}
+
+/**
+ * deleteTask — confirms, removes via TasksRepository.
+ * @param {number} i - 0-based index in the data.tasks mirror.
+ *
+ * NOTE: Preserves original behaviour exactly — the original inline
+ * deleteTask() does NOT call syncDeleteToSheets()/ApiService.deleteData()
+ * for tasks, identical to the pre-existing gap already flagged for
+ * deleteDocument(). This module makes no functional change to that
+ * behaviour.
+ *
+ * Crosses the async boundary (Repository.delete() is Promise-returning)
+ * — the only reason this function is now `async`.
+ */
+async function deleteTask(i) {
+  if (!confirm('حذف؟')) return;
+
+  await ensureTasksRepositoryReady();
+
+  var record = data.tasks[i];
+  if (!record) return;
+
+  var id = record[TASKS_ID_FIELD];
+  var result = await tasksRepository.delete(id);
+
+  if (!result || !result.success) {
+    toast('حدث خطأ أثناء الحذف', 'error');
+    return;
+  }
+
+  syncTasksMirror();
+  saveLocal();
+  toast('تم الحذف', 'info');
+  renderTasks();
+  updateBadges();
+}
+
+/**
+ * restoreTask(id) — استرجاع مهمة محذوفة (Restore).
+ * PHASE 10 — SUB-PHASE 10.4 — Restore Rollout (same pattern as Cases,
+ * SUB-PHASE 10.3 — see docs/Restore_Rollout_Report.md).
+ * Restores a soft-deleted task via `tasksRepository.restore(id)`
+ * (inherited, unmodified, from SUB-PHASE 10.2's `Repository.prototype.
+ * restore()`). Symmetric with `deleteTask()` above: same ready-guard,
+ * same `syncTasksMirror()` -> `saveLocal()` -> `renderTasks()` ->
+ * `updateBadges()` sequence.
+ *
+ * ID, NOT INDEX — same documented reason as `restoreCase()`.
+ * NO UI WIRING — Rollout scope, matches the Pilot.
+ * Does NOT call `ApiService` — same explicit, documented design
+ * decision as `restoreCase()` (`deleteTask()` itself calls no
+ * `ApiService` method either, so this preserves exact symmetry).
+ *
+ * @param {string} id - the TasksRepository id (رقم_المهمة) of the
+ *   soft-deleted task to restore.
+ */
+async function restoreTask(id) {
+  await ensureTasksRepositoryReady();
+
+  var result = await tasksRepository.restore(id);
+
+  if (!result || !result.success) {
+    toast('حدث خطأ أثناء الاسترجاع', 'error');
+    return;
+  }
+
+  syncTasksMirror();
+  saveLocal();
+  toast('تم الاسترجاع', 'success');
+  renderTasks();
+  updateBadges();
+}
+
+/**
+ * toggleTask — flips a task's status between 'pending' and 'done'.
+ * @param {number} i - 0-based index in the data.tasks mirror.
+ *
+ * NOTE: Preserves original behaviour exactly — the original inline
+ * toggleTask() does NOT sync the status change to GAS (no
+ * syncToSheets()/ApiService.syncRow() call). This module makes no
+ * functional change to that behaviour.
+ *
+ * Implemented as a partial `TasksRepository.update(id, {الحالة: ...})`
+ * call rather than a full-record update — TasksRepository does not
+ * expose a specialized `toggleStatus()` operation (see
+ * TasksRepository.js file header "TOGGLE" note), so `update()` with
+ * only the changed field is the correct, already-available substitute;
+ * Repository.update() merges the patch onto the existing stored record
+ * (Repository Contract), so no other field is disturbed.
+ *
+ * Crosses the async boundary (Repository.update() is Promise-returning)
+ * — the only reason this function is now `async`.
+ */
+async function toggleTask(i) {
+  await ensureTasksRepositoryReady();
+
+  var record = data.tasks[i];
+  if (!record) return;
+
+  var id = record[TASKS_ID_FIELD];
+  var newStatus = record['الحالة'] === 'done' ? 'pending' : 'done';
+  var result = await tasksRepository.update(id, { 'الحالة': newStatus });
+
+  if (!result || !result.success) return;
+
+  syncTasksMirror();
+  saveLocal();
+  renderTasks();
+  updateBadges();
+}
+
+// ================================================================
+// Node/test export (browser: `module` is undefined, this is a no-op —
+// renderTasks/saveTask/editTask/deleteTask/toggleTask remain plain
+// global functions exactly as before).
+// ================================================================
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    TASKS_FIELDS: TASKS_FIELDS,
+    TASKS_MAP: TASKS_MAP,
+    TASKS_ID_FIELD: TASKS_ID_FIELD,
+    tasksRepository: tasksRepository,
+    ensureTasksRepositoryReady: ensureTasksRepositoryReady,
+    syncTasksMirror: syncTasksMirror,
+    resolveTaskIndex: resolveTaskIndex,
+    renderTasks: renderTasks,
+    saveTask: saveTask,
+    editTask: editTask,
+    deleteTask: deleteTask,
+    restoreTask: restoreTask,
+    toggleTask: toggleTask
+  };
+}
