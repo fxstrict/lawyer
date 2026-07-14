@@ -1,0 +1,31 @@
+@media(max-width:768px){
+  .sidebar{transform:translateX(100%);}
+  .sidebar.open{transform:translateX(0);}
+  .sidebar-overlay{display:none;}.sidebar-overlay.open{display:block;}
+  .main{margin-right:0;}.burger{display:flex;}
+  .page{padding:12px;}.topbar{padding:11px 14px;}.topbar-title{font-size:15px;}
+  .topbar-actions .btn-ghost{display:none;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
+  .stat-num{font-size:24px;}.stat-icon{font-size:20px;}.stat-card{padding:13px;}
+  .dashboard-grid{grid-template-columns:1fr;}
+  .table-wrap{display:none !important;}.mobile-card-list{display:block !important;}
+  .form-grid{grid-template-columns:1fr;}.form-grid .full{grid-column:1;}
+  .modal{border-radius:12px 12px 0 0;max-height:95vh;}.modal-wide{max-width:100%;}
+  .modal-overlay{align-items:flex-end;padding:0;}
+  .modal-body{padding:14px;}.modal-header{padding:14px;}.modal-footer{padding:11px 14px;}
+  .modal-footer .btn{flex:1;justify-content:center;}
+  .lib-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
+  .toast-container{left:8px;right:8px;bottom:10px;}.toast{min-width:auto;width:100%;}
+  .section-tabs{gap:5px;}.tab-btn{padding:5px 10px;font-size:11px;}
+  .api-input-wrap{flex-direction:column;}.drive-link-bar{flex-direction:column;align-items:flex-start;}
+  .session-actions{flex-direction:row;}
+  /* Portal modal on mobile */
+  #modalPortal .modal{border-radius:16px 16px 0 0;max-height:92vh;}
+  #modalPortal .modal-body{padding:14px;}
+  #qrCodeDiv img{max-width:100%;height:auto;}
+  /* View modal header buttons on mobile */
+  #modalView .modal-header{padding:10px 12px;}
+  #modalView .btn-sm{padding:5px 8px;font-size:10px;}
+  /* Cases mobile card actions */
+  .m-card-actions{flex-wrap:wrap;}
+}
