@@ -66,6 +66,28 @@ function renderDashboard(){
   var dt=document.getElementById('dashTasks');
   if(!ut.length)dt.innerHTML='<div class="empty-state"><div class="icon">&#9989;</div><p>لا توجد مهام عاجلة</p></div>';
   else dt.innerHTML=ut.map(function(t){return'<div class="task-item high"><div class="task-check"></div><div><div class="task-text">&#128308; '+t['العنوان']+'</div>'+(t['الموعد_النهائي']?'<div class="task-due">'+urgencyBadge(t['الموعد_النهائي'])+' '+formatDate(t['الموعد_النهائي'])+'</div>':'')+'</div></div>';}).join('');
+
+  // PHASE UX-01: first-use welcome state — shown instead of the (all-zero)
+  // stats/dashboard grids only when there are zero cases yet. Purely a
+  // display:'' / 'none' toggle on existing elements; no data read/written,
+  // no change to any calculation above this block.
+  var dw=document.getElementById('dashboardWelcome');
+  if(dw){
+    var statsGrid=document.querySelector('#page-dashboard .stats-grid');
+    var dashGrid=document.querySelector('#page-dashboard .dashboard-grid');
+    var sectionTitle=document.querySelector('#page-dashboard .dash-section-title');
+    if(!data.cases.length){
+      dw.style.display='';
+      if(statsGrid)statsGrid.style.display='none';
+      if(dashGrid)dashGrid.style.display='none';
+      if(sectionTitle)sectionTitle.style.display='none';
+    }else{
+      dw.style.display='none';
+      if(statsGrid)statsGrid.style.display='';
+      if(dashGrid)dashGrid.style.display='';
+      if(sectionTitle)sectionTitle.style.display='';
+    }
+  }
 }
 
 function updateBadges(){

@@ -74,6 +74,7 @@ function updateConnectionStatus(){
   var dot=document.getElementById('statusDot'),tx=document.getElementById('statusText');
   if(API_URL){dot.classList.add('connected');dot.classList.remove('error');tx.textContent='متصل بـ Google Sheets';}
   else{dot.classList.remove('connected','error');tx.textContent='غير متصل بـ Sheets';}
+  if(typeof updateTopbarSyncMeta==='function')updateTopbarSyncMeta();
 }
 async function pingConnection(){
   if(!API_URL)return;
@@ -92,6 +93,7 @@ async function pingConnection(){
     var dot=document.getElementById('statusDot'),tx=document.getElementById('statusText');
     dot.classList.remove('connected');dot.classList.add('error');tx.textContent='تعذر الاتصال';
   }
+  if(typeof updateTopbarSyncMeta==='function')updateTopbarSyncMeta();
 }
 
 function exportData(){var b=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='lawyer_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('تم التصدير','success');}
@@ -117,7 +119,56 @@ async function syncDeleteToSheets(sheet,rowIndex){
 }
 
 // Non-blocking background sync indicator — never covers the UI (unlike showLoading/#loadingOverlay).
-function showSyncIndicator(v){var el=document.getElementById('syncIndicator');if(el)el.classList.toggle('show',v);}
+// PHASE UX-02: extended to a small state machine instead of a plain show/hide toggle:
+//   showSyncIndicator(true)      -> "جارٍ المزامنة…" (syncing, pulsing dot)
+//   showSyncIndicator('success') -> "تمت المزامنة" (green, auto-hides after 2.5s)
+//   showSyncIndicator('error')   -> "العمل بالبيانات المحلية" (red, auto-hides after 4s)
+//   showSyncIndicator(false)     -> hidden immediately (unchanged legacy behavior)
+// The app remains fully usable in every state; this only touches a small pill in
+// the topbar, never a screen-covering overlay.
+var _syncIndicatorHideTimer=null;
+function showSyncIndicator(v){
+  var el=document.getElementById('syncIndicator');
+  if(!el)return;
+  var textEl=document.getElementById('syncIndicatorText');
+  if(_syncIndicatorHideTimer){clearTimeout(_syncIndicatorHideTimer);_syncIndicatorHideTimer=null;}
+  el.classList.remove('success','error');
+  if(v===true){
+    if(textEl)textEl.textContent='جارٍ المزامنة…';
+    el.classList.add('show');
+  }else if(v==='success'){
+    if(textEl)textEl.textContent='تمت المزامنة';
+    el.classList.add('show','success');
+    _syncIndicatorHideTimer=setTimeout(function(){el.classList.remove('show','success');},2500);
+  }else if(v==='error'){
+    if(textEl)textEl.textContent='العمل بالبيانات المحلية';
+    el.classList.add('show','error');
+    _syncIndicatorHideTimer=setTimeout(function(){el.classList.remove('show','error');},4000);
+  }else{
+    el.classList.remove('show');
+  }
+}
+
+// Topbar connection/last-sync meta — PHASE UX-02 item 4. Independent of the sidebar's
+// #statusDot/#statusText (untouched); reads only localStorage + API_URL, never blocks.
+function updateTopbarSyncMeta(){
+  var dot=document.getElementById('topbarConnDot'),tx=document.getElementById('topbarConnText');
+  if(dot&&tx){
+    if(API_URL){dot.classList.add('connected');dot.classList.remove('error');tx.textContent='متصل بـ Sheets';}
+    else{dot.classList.remove('connected','error');tx.textContent='محلي فقط';}
+  }
+  var lsEl=document.getElementById('topbarLastSync');
+  if(lsEl){
+    var ts=localStorage.getItem('lastSyncAt');
+    lsEl.textContent=ts?('آخر مزامنة '+new Date(ts).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})):'';
+  }
+  var nameEl=document.getElementById('topbarUserName');
+  if(nameEl){
+    var uname=localStorage.getItem('userName');
+    if(uname){nameEl.textContent=uname;nameEl.style.display='';}
+    else nameEl.style.display='none';
+  }
+}
 
 // PHASE 12.4B — INSTANT STARTUP HOTFIX
 // Local data is already rendered before this runs (see DOMContentLoaded in index.html).
@@ -149,11 +200,18 @@ async function loadFromSheets(){
   var failed=results.filter(function(r){return r==='failed';}).length;
   if(loaded>0){
     updateBadges();renderDashboard();
+    localStorage.setItem('lastSyncAt',new Date().toISOString());
+    if(typeof updateTopbarSyncMeta==='function')updateTopbarSyncMeta();
+    showSyncIndicator('success');
     toast('تم تحديث البيانات من Sheets ('+loaded+' أوراق)','success');
   }else if(failed===pairs.length){
     // Total sync failure (offline / Apps Script unreachable): keep working on local data.
+    showSyncIndicator('error');
     toast('تعذرت المزامنة مع Sheets — العمل بالبيانات المحلية','error');
   }else{
+    localStorage.setItem('lastSyncAt',new Date().toISOString());
+    if(typeof updateTopbarSyncMeta==='function')updateTopbarSyncMeta();
+    showSyncIndicator('success');
     toast('الاتصال نجح — لا توجد بيانات جديدة في الأوراق','info');
   }
 }
