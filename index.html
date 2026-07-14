@@ -12,6 +12,61 @@
 <link href="css/responsive.css" rel="stylesheet">
 </head>
 <body>
+<!-- ================================================================
+     SPLASH SCREEN — PHASE UX-01. Shown by default (no JS required for
+     first paint) so there is never a blank page. Hidden by
+     js/modules/firstrun.js shortly after local data has rendered
+     (never blocks on network/Sheets sync — see UX_First_Run_Report.md).
+     ================================================================ -->
+<div class="splash-screen" id="splashScreen">
+  <div class="splash-badge">&#9878;</div>
+  <div class="splash-title">الحسام</div>
+  <div class="splash-subtitle">نظام إدارة مكاتب المحاماة</div>
+  <div class="splash-loading"><span class="dot"></span> جارٍ التحميل...</div>
+  <div class="splash-footer">للاستفسار — واتساب <a href="https://wa.me/201016000360" target="_blank" rel="noopener">01016000360</a></div>
+</div>
+
+<!-- ================================================================
+     FIRST RUN WIZARD — PHASE UX-01. Shown only when no Google Apps
+     Script URL is saved yet (localStorage 'apiUrl'). Reappears
+     automatically any time that value is empty/removed. Saving closes
+     it in place — no page reload — since the app underneath is
+     already fully rendered from local data. UI only: does not touch
+     Repository/DatabaseService/Cache/Undo/Sync logic.
+     ================================================================ -->
+<div class="modal-overlay" id="firstRunWizard" style="z-index:800;">
+  <div class="modal firstrun-modal">
+    <div class="firstrun-hero">
+      <div class="firstrun-badge">&#9878;</div>
+      <div class="firstrun-title">الحسام</div>
+      <div class="firstrun-subtitle">نظام إدارة مكاتب المحاماة</div>
+    </div>
+    <div class="modal-body">
+      <p class="firstrun-welcome">مرحباً بك 👋 يعمل البرنامج بالكامل محلياً على جهازك. ولضمان خصوصيتك، يستخدم كل مستخدم رابط Google Apps Script الخاص به فقط — لن تُرسل بياناتك إلى أي خادم تابع للمطور، وجميع بياناتك تخصك وحدك.</p>
+      <div class="firstrun-privacy-box">
+        <div class="firstrun-privacy-title">&#128274; خصوصيتك مضمونة</div>
+        <ul>
+          <li>كل مستخدم يمتلك رابطه الخاص — لا مشاركة للبيانات بين المستخدمين</li>
+          <li>لا يُحفظ الرابط لدى المطور إطلاقاً</li>
+          <li>يُحفظ الرابط داخل متصفحك أنت فقط</li>
+        </ul>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>رابط Google Apps Script Web App</label>
+        <input type="text" id="wizardApiUrlInput" placeholder="https://script.google.com/macros/s/YOUR_ID/exec">
+      </div>
+      <div class="firstrun-result" id="firstRunResult"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button class="btn btn-ghost btn-sm" onclick="wizardSkip()">تخطي الآن</button>
+      <div style="display:flex;gap:9px;">
+        <button class="btn btn-ghost" onclick="wizardTestConnection()">&#128269; اختبار الاتصال</button>
+        <button class="btn btn-primary" onclick="wizardSaveAndStart()">&#128190; حفظ وبدء البرنامج</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div><div
 style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
 البيانات مع تحيات مكتب الحسام للمحاماة...</div></div>
@@ -20,8 +75,9 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
 <div class="app-shell">
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-title">&#9878;  مكتب الحسام للمحاماة  </div>
-    <div class="logo-sub">المستشار  حسام محمد ابراهيم | v3.0</div>
+    <div class="sidebar-logo-badge">&#9878;</div>
+    <div class="logo-title">مكتب الحسام للمحاماة</div>
+    <div class="logo-sub">المستشار حسام محمد ابراهيم | v3.0</div>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section-label">الرئيسية</div>
@@ -52,7 +108,12 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
     <div class="topbar-title" id="topbarTitle">لوحة <span>التحكم</span></div>
   </div>
   <div class="topbar-actions">
-    <span class="sync-indicator" id="syncIndicator"><span class="sync-dot"></span>جارٍ المزامنة…</span>
+    <div class="topbar-meta" id="topbarMeta">
+      <span class="topbar-user" id="topbarUserName" style="display:none;"></span>
+      <span class="topbar-conn"><span class="dot" id="topbarConnDot"></span><span id="topbarConnText">محلي</span></span>
+      <span class="topbar-lastsync" id="topbarLastSync"></span>
+    </div>
+    <span class="sync-indicator" id="syncIndicator"><span class="sync-dot"></span><span id="syncIndicatorText">جارٍ المزامنة…</span></span>
     <button class="btn btn-ghost btn-sm" onclick="refreshAll()">&#8635; تحديث</button>
     <button class="btn btn-primary btn-sm" id="topbarAction" onclick="openAddModal()" style="display:none;">&#65291; إضافة</button>
   </div>
@@ -61,6 +122,15 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
 <!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
   <div id="dashAlerts"></div>
+  <!-- PHASE UX-01: shown instead of the (all-zero) stats/dashboard grids
+       only when there are zero cases yet — see dashboard.js renderDashboard().
+       Toggled purely via style.display; no data/Repository logic touched. -->
+  <div class="dashboard-welcome" id="dashboardWelcome" style="display:none;">
+    <div class="icon">&#9878;</div>
+    <h2>مرحباً بك في نظام الحسام لإدارة مكاتب المحاماة</h2>
+    <p>ابدأ رحلتك بإضافة أول قضية، وسيتولى النظام تتبع جلساتها ومهامها وأتعابها تلقائياً.</p>
+    <button class="btn btn-primary" onclick="navigate('cases');openAddModal();">&#65291; إضافة قضية جديدة</button>
+  </div>
   <div class="stats-grid">
     <div class="stat-card" onclick="navigate('cases')"><div class="stat-icon">&#9878;</div><div class="stat-num" id="statCases">0</div><div class="stat-label">إجمالي القضايا</div></div>
     <div class="stat-card" onclick="navigate('cases')"><div class="stat-icon">&#128994;</div><div class="stat-num" id="statActive">0</div><div class="stat-label">قضايا نشطة</div></div>
@@ -69,6 +139,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
     <div class="stat-card" onclick="navigate('clients')"><div class="stat-icon">&#128101;</div><div class="stat-num" id="statClients">0</div><div class="stat-label">الموكلون</div></div>
     <div class="stat-card" onclick="navigate('tasks')"><div class="stat-icon">&#9989;</div><div class="stat-num" id="statTasks">0</div><div class="stat-label">مهام عاجلة</div></div>
   </div>
+  <div class="dash-section-title"><span class="icon">&#128203;</span> المستجدات</div>
   <div class="dashboard-grid">
     <div class="card">
       <div class="card-header"><span><span class="icon">&#128197;</span> أقرب الجلسات</span><button class="btn btn-ghost btn-sm" onclick="navigate('sessions')">عرض الكل</button></div>
@@ -91,7 +162,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
   </div>
   <div class="card"><div class="card-body" style="padding:0;">
     <div class="table-wrap"><table><thead><tr><th>رقم القضية</th><th>العنوان</th><th>النوع</th><th>الموكل</th><th>الخصم</th><th>المحكمة</th><th>الحالة</th><th>الجلسة القادمة</th><th>إجراءات</th></tr></thead><tbody id="casesTableBody"></tbody></table></div>
-    <div id="casesEmpty" class="empty-state" style="display:none;"><div class="icon">&#9878;</div><h3>لا توجد قضايا</h3><p>أضف قضيتك الأولى</p></div>
+    <div id="casesEmpty" class="empty-state" style="display:none;"><div class="icon">&#9878;</div><h3>لا توجد قضايا بعد</h3><p>ابدأ بإضافة أول قضية، وسيتولى النظام تتبع جلساتها ومهامها وأتعابها تلقائياً.</p><button class="btn btn-primary" style="margin-top:12px;" onclick="openAddModal()">&#65291; إضافة قضية جديدة</button></div>
   </div></div>
   <div class="mobile-card-list" id="casesMobileList"></div>
 </div>
@@ -103,7 +174,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
     <select id="filterSessionStatus" onchange="renderSessions()" style="width:auto;min-width:120px;"><option value="">كل الحالات</option><option>قادمة</option><option>منتهية</option><option>مُرجأة</option></select>
   </div>
   <div id="sessionsListView"></div>
-  <div id="sessionsEmpty" class="empty-state" style="display:none;"><div class="icon">&#128197;</div><h3>لا توجد جلسات</h3><p>أضف جلستك الأولى</p></div>
+  <div id="sessionsEmpty" class="empty-state" style="display:none;"><div class="icon">&#128197;</div><h3>لا توجد جلسات بعد</h3><p>سجّل مواعيد جلسات القضايا هنا لمتابعتها والتنبيه بها تلقائياً في لوحة التحكم.</p><button class="btn btn-primary" onclick="openAddModal()">&#65291; إضافة جلسة جديدة</button></div>
 </div>
 
 <!-- CLIENTS -->
@@ -111,7 +182,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
   <div class="toolbar"><div class="search-wrap"><span class="icon">&#128269;</span><input type="text" id="searchClients" placeholder="بحث في الموكلين..." oninput="renderClients()"></div></div>
   <div class="card"><div class="card-body" style="padding:0;">
     <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>النوع</th><th>الهاتف</th><th>الرقم القومي</th><th>العنوان</th><th>الوظيفة</th><th>إجراءات</th></tr></thead><tbody id="clientsTableBody"></tbody></table></div>
-    <div id="clientsEmpty" class="empty-state" style="display:none;"><div class="icon">&#128101;</div><h3>لا يوجد موكلون</h3><p>أضف موكلك الأول</p></div>
+    <div id="clientsEmpty" class="empty-state" style="display:none;"><div class="icon">&#128101;</div><h3>لا يوجد موكلون بعد</h3><p>أضف بيانات موكلك الأول لتتمكن من ربطه بالقضايا والجلسات والأتعاب.</p><button class="btn btn-primary" onclick="openAddModal()">&#65291; إضافة موكل جديد</button></div>
   </div></div>
   <div class="mobile-card-list" id="clientsMobileList"></div>
 </div>
@@ -124,7 +195,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
   </div>
   <div class="card"><div class="card-body" style="padding:0;">
     <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>رقم القضية</th><th>السن</th><th>المدرسة</th><th>الحضانة</th><th>محل الإقامة</th><th>النفقة</th><th>إجراءات</th></tr></thead><tbody id="childrenTableBody"></tbody></table></div>
-    <div id="childrenEmpty" class="empty-state" style="display:none;"><div class="icon">&#128118;</div><h3>لا توجد بيانات أطفال</h3><p>أضف بيانات الأطفال</p></div>
+    <div id="childrenEmpty" class="empty-state" style="display:none;"><div class="icon">&#128118;</div><h3>لا توجد بيانات أطفال بعد</h3><p>سجّل بيانات الأطفال المرتبطين بقضايا الحضانة والنفقة لمتابعة أعمارهم واستحقاقاتهم.</p><button class="btn btn-primary" onclick="openAddChildModal()">&#65291; إضافة طفل</button></div>
   </div></div>
   <div class="mobile-card-list" id="childrenMobileList"></div>
 </div>
@@ -138,7 +209,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
   </div>
   <div class="card"><div class="card-body" style="padding:0;">
     <div class="table-wrap"><table><thead><tr><th>اسم المستند</th><th>رقم القضية</th><th>النوع</th><th>تاريخ الإيداع</th><th>رابط Drive</th><th>ملاحظات</th><th>إجراءات</th></tr></thead><tbody id="documentsTableBody"></tbody></table></div>
-    <div id="documentsEmpty" class="empty-state" style="display:none;"><div class="icon">&#128206;</div><h3>لا توجد مستندات</h3><p>أضف مستندات القضايا</p></div>
+    <div id="documentsEmpty" class="empty-state" style="display:none;"><div class="icon">&#128206;</div><h3>لا توجد مستندات بعد</h3><p>أرفق مستندات القضايا هنا (عقود، شهادات، محاضر) مع روابط Google Drive الخاصة بها.</p><button class="btn btn-primary" onclick="openAddDocModal()">&#65291; إضافة مستند</button></div>
   </div></div>
   <div class="mobile-card-list" id="documentsMobileList"></div>
 </div>
@@ -150,7 +221,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
     <select id="filterTaskPriority" onchange="renderTasks()" style="width:auto;min-width:120px;"><option value="">كل الأولويات</option><option value="high">عاجلة</option><option value="medium">متوسطة</option><option value="low">عادية</option></select>
   </div>
   <div id="tasksListView"></div>
-  <div id="tasksEmpty" class="empty-state" style="display:none;"><div class="icon">&#9989;</div><h3>لا توجد مهام</h3></div>
+  <div id="tasksEmpty" class="empty-state" style="display:none;"><div class="icon">&#9989;</div><h3>لا توجد مهام بعد</h3><p>أضف مهام متابعة للقضايا (مواعيد، إجراءات، أوراق مطلوبة) وحدد أولويتها.</p><button class="btn btn-primary" onclick="openAddModal()">&#65291; إضافة مهمة</button></div>
 </div>
 
 <!-- FEES -->
@@ -165,7 +236,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
   </div>
   <div class="card"><div class="card-body" style="padding:0;">
     <div class="table-wrap"><table><thead><tr><th>رقم القضية</th><th>الموكل</th><th>النوع</th><th>المبلغ</th><th>التاريخ</th><th>طريقة الدفع</th><th>ملاحظات</th><th>إجراءات</th></tr></thead><tbody id="feesTableBody"></tbody></table></div>
-    <div id="feesEmpty" class="empty-state" style="display:none;"><div class="icon">&#128176;</div><h3>لا توجد أتعاب مسجلة</h3></div>
+    <div id="feesEmpty" class="empty-state" style="display:none;"><div class="icon">&#128176;</div><h3>لا توجد أتعاب مسجلة بعد</h3><p>سجّل دفعات الأتعاب المستلمة من الموكلين لمتابعة الإجمالي وعدد العمليات.</p><button class="btn btn-primary" onclick="openAddFeeModal()">&#65291; تسجيل أتعاب</button></div>
   </div></div>
   <div class="mobile-card-list" id="feesMobileList"></div>
 </div>
@@ -203,7 +274,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
     <button class="btn btn-primary btn-sm" onclick="openAddLibModal()">&#65291; إضافة</button>
   </div>
   <div class="lib-grid" id="libGrid"></div>
-  <div id="libEmpty" class="empty-state" style="display:none;"><div class="icon">&#128218;</div><h3>المكتبة فارغة</h3></div>
+  <div id="libEmpty" class="empty-state" style="display:none;"><div class="icon">&#128218;</div><h3>المكتبة فارغة حالياً</h3><p>أضف كتباً أو ملفات قانونية مرجعية (PDF، Word، مجلدات) ليسهل الرجوع إليها لاحقاً.</p><button class="btn btn-primary" onclick="openAddLibModal()">&#65291; إضافة إلى المكتبة</button></div>
 </div>
 
 <!-- TEMPLATES -->
@@ -214,7 +285,7 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
   </div>
   <div class="section-tabs" id="templateTabs"><button class="tab-btn active" onclick="filterTemplates('all')">&#128203; الكل</button></div>
   <div class="lib-grid" id="templatesGrid"></div>
-  <div id="templatesEmpty" class="empty-state" style="display:none;"><div class="icon">&#128196;</div><h3>لا توجد صيغ</h3></div>
+  <div id="templatesEmpty" class="empty-state" style="display:none;"><div class="icon">&#128196;</div><h3>لا توجد صيغ دعاوى بعد</h3><p>أضف نماذج الصحف والمذكرات الجاهزة لتوفير وقتك عند إعداد قضايا مشابهة مستقبلاً.</p><button class="btn btn-primary" onclick="openAddTemplateModal()">&#65291; إضافة صيغة دعوى</button></div>
 </div>
 
 <!-- SETTINGS -->
@@ -675,6 +746,7 @@ window.addEventListener('DOMContentLoaded',function(){
 </script>
 
 <script src="js/modules/settings.js"></script>
+<script src="js/modules/firstrun.js"></script>
 <script src="js/modules/calendar.js"></script>
 <script src="js/modules/children.js"></script>
 <script src="js/modules/dashboard.js"></script>
