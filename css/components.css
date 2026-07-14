@@ -12,13 +12,21 @@
 .btn-sm{padding:5px 11px;font-size:12px;}.btn-icon{padding:7px;width:32px;height:32px;justify-content:center;}
 
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;}
-.stat-card{background:#FFFFFF;border:1px solid rgba(201,168,76,0.2);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;transition:transform var(--transition);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.06);}
-.stat-card:hover{transform:translateY(-2px);}
+.stat-card{background:#FFFFFF;border:1px solid rgba(201,168,76,0.2);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:transform var(--transition),box-shadow var(--transition);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.06);}
+.stat-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(20,30,45,0.09);}
 .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),transparent);}
-.stat-icon{font-size:26px;margin-bottom:8px;}.stat-num{font-size:30px;font-weight:900;color:#C9A84C;line-height:1;}.stat-label{font-size:12px;color:#5A6E85;margin-top:5px;}
+.stat-icon{font-size:20px;margin-bottom:10px;width:38px;height:38px;border-radius:10px;background:rgba(201,168,76,0.12);display:flex;align-items:center;justify-content:center;}
+.stat-num{font-size:28px;font-weight:900;color:#16283F;line-height:1;letter-spacing:-.5px;}
+.stat-label{font-size:12px;color:#5A6E85;margin-top:6px;font-weight:600;}
+
+/* Dashboard section headings — PHASE UX-02: purely decorative wrappers,
+   no effect on any existing id/behavior. */
+.dash-section-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#16283F;margin:26px 0 12px;letter-spacing:.2px;}
+.dash-section-title .icon{color:var(--gold);}
+.dash-section-title:first-child{margin-top:0;}
 
 .dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
-.card{background:#FFFFFF;border:1px solid rgba(201,168,76,0.2);border-radius:var(--radius);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);}
+.card{background:#FFFFFF;border:1px solid rgba(201,168,76,0.2);border-radius:var(--radius);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);transition:box-shadow var(--transition);}
 .card-header{padding:14px 18px;border-bottom:1px solid rgba(0,0,0,0.07);display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:700;}
 .card-header .icon{color:var(--gold);margin-left:7px;}.card-body{padding:18px;}
 
@@ -64,7 +72,8 @@
 .empty-state{text-align:center;padding:50px 20px;color:#5A6E85;}
 .empty-state .icon{font-size:48px;margin-bottom:14px;opacity:.35;}
 .empty-state h3{font-size:15px;font-weight:600;margin-bottom:7px;color:#1A2640;}
-.empty-state p{font-size:12px;}
+.empty-state p{font-size:12px;line-height:1.7;max-width:340px;margin-left:auto;margin-right:auto;}
+.empty-state .btn{margin-top:16px;}
 
 .settings-card{background:#FFFFFF;border:1px solid rgba(201,168,76,0.2);border-radius:var(--radius);padding:22px;margin-bottom:18px;}
 .settings-title{font-size:14px;font-weight:700;color:var(--gold);margin-bottom:14px;padding-bottom:9px;border-bottom:1px solid rgba(201,168,76,0.15);}
@@ -88,12 +97,72 @@
 .loading-overlay{position:fixed;inset:0;background:rgba(248,245,239,0.9);z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
 .loading-overlay.show{display:flex;}
 
-/* Non-blocking background sync indicator — never covers the UI, never blocks interaction */
-.sync-indicator{display:none;align-items:center;gap:6px;font-size:11px;color:var(--muted);padding:5px 10px;border-radius:20px;background:rgba(201,168,76,0.1);}
+/* ================================================================
+   SPLASH SCREEN — PHASE UX-01. Light background (not black/dark),
+   visible by default in the markup for an instant first paint, hidden
+   by firstrun.js shortly after local data renders. Never gated on
+   network/Sheets sync. See docs/UX_First_Run_Report.md.
+   ================================================================ */
+.splash-screen{position:fixed;inset:0;z-index:900;background:#F8F5EF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:opacity .35s ease,visibility .35s ease;}
+.splash-screen.splash-hide{opacity:0;visibility:hidden;pointer-events:none;}
+.splash-badge{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dk));display:flex;align-items:center;justify-content:center;font-size:38px;color:#fff;box-shadow:0 8px 26px rgba(201,168,76,0.35);animation:splash-pulse 1.6s ease-in-out infinite;margin-bottom:12px;}
+.splash-title{font-size:24px;font-weight:900;color:#0D1B2A;letter-spacing:.5px;}
+.splash-subtitle{font-size:13px;color:var(--muted);margin-top:2px;}
+.splash-loading{font-size:12px;color:var(--muted);margin-top:20px;display:flex;align-items:center;gap:8px;}
+.splash-loading .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:sync-pulse 1s ease-in-out infinite;}
+.splash-footer{position:absolute;bottom:26px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.splash-footer a{color:var(--info);font-weight:700;text-decoration:none;}
+.splash-footer a:hover{text-decoration:underline;}
+@keyframes splash-pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+
+/* ================================================================
+   FIRST RUN WIZARD — PHASE UX-01. Reuses .modal-overlay/.modal/
+   .modal-body/.modal-footer as a base; these rules only add the
+   wizard-specific hero/privacy-box treatment on top.
+   ================================================================ */
+.firstrun-modal{max-width:520px;}
+.firstrun-hero{padding:26px 22px 16px;text-align:center;border-bottom:1px solid rgba(0,0,0,0.06);}
+.firstrun-badge{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dk));display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;margin:0 auto 10px;box-shadow:0 6px 18px rgba(201,168,76,0.35);}
+.firstrun-title{font-size:19px;font-weight:900;color:#0D1B2A;}
+.firstrun-subtitle{font-size:12px;color:var(--muted);margin-top:3px;}
+.firstrun-welcome{font-size:13px;color:#1A2640;line-height:1.8;margin-bottom:16px;}
+.firstrun-privacy-box{background:rgba(41,128,185,0.06);border:1px solid rgba(41,128,185,0.2);border-radius:12px;padding:14px 16px;margin-bottom:18px;}
+.firstrun-privacy-title{font-size:12px;font-weight:700;color:var(--info);margin-bottom:8px;}
+.firstrun-privacy-box ul{padding-right:18px;font-size:12px;color:#3d5266;line-height:1.9;}
+.firstrun-result{font-size:12px;margin-top:9px;min-height:18px;}
+
+/* ================================================================
+   DASHBOARD WELCOME (empty-data first-use state) — PHASE UX-01.
+   Shown instead of the stats/dashboard grids only when there are
+   zero cases yet — toggled in dashboard.js renderDashboard().
+   ================================================================ */
+.dashboard-welcome{background:linear-gradient(135deg,rgba(201,168,76,0.10),rgba(41,128,185,0.05));border:1px solid rgba(201,168,76,0.25);border-radius:16px;padding:46px 26px;text-align:center;margin-bottom:20px;}
+.dashboard-welcome .icon{font-size:48px;margin-bottom:12px;opacity:.85;}
+.dashboard-welcome h2{font-size:19px;font-weight:900;color:#16283F;margin-bottom:8px;}
+.dashboard-welcome p{font-size:13px;color:var(--muted);margin-bottom:20px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.7;}
+
+/* Non-blocking background sync indicator — never covers the UI, never blocks interaction.
+   PHASE UX-02: extended with .success/.error state colors; base .show/pulsing dot kept
+   for the in-progress ("syncing") state exactly as before. */
+.sync-indicator{display:none;align-items:center;gap:6px;font-size:11px;color:var(--muted);padding:5px 10px;border-radius:20px;background:rgba(201,168,76,0.1);transition:background var(--transition),color var(--transition);}
 .sync-indicator.show{display:inline-flex;}
 .sync-indicator .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:sync-pulse 1s ease-in-out infinite;}
+.sync-indicator.success{background:rgba(39,174,96,0.12);color:var(--success);}
+.sync-indicator.success .sync-dot{background:var(--success);animation:none;}
+.sync-indicator.error{background:rgba(192,57,43,0.12);color:var(--danger);}
+.sync-indicator.error .sync-dot{background:var(--danger);animation:none;}
 @keyframes sync-pulse{0%,100%{opacity:.3;}50%{opacity:1;}}
 .spinner{width:44px;height:44px;border:4px solid rgba(201,168,76,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;}
+
+/* Topbar meta — PHASE UX-02 item 4: connection status + last sync time (+ optional
+   user name, shown only if a display name exists in the future). Purely additive;
+   does not replace the sidebar's existing #statusDot/#statusText. */
+.topbar-meta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--muted);}
+.topbar-user{font-weight:700;color:#16283F;}
+.topbar-conn{display:flex;align-items:center;gap:6px;}
+.topbar-conn .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.topbar-conn .dot.connected{background:var(--success);}.topbar-conn .dot.error{background:var(--danger);}
+.topbar-lastsync{white-space:nowrap;}
 
 .session-item{padding:13px 15px;border-radius:var(--radius);background:#F8F5EF;border:1px solid rgba(201,168,76,0.15);margin-bottom:9px;display:flex;gap:13px;align-items:flex-start;transition:all var(--transition);}
 .session-item:hover{border-color:rgba(201,168,76,0.35);background:rgba(201,168,76,0.06);}

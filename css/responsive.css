@@ -5,6 +5,7 @@
   .main{margin-right:0;}.burger{display:flex;}
   .page{padding:12px;}.topbar{padding:11px 14px;}.topbar-title{font-size:15px;}
   .topbar-actions .btn-ghost{display:none;}
+  .topbar-meta{display:none;}
   .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
   .stat-num{font-size:24px;}.stat-icon{font-size:20px;}.stat-card{padding:13px;}
   .dashboard-grid{grid-template-columns:1fr;}
@@ -28,4 +29,13 @@
   #modalView .btn-sm{padding:5px 8px;font-size:10px;}
   /* Cases mobile card actions */
   .m-card-actions{flex-wrap:wrap;}
+  /* PHASE UX-01: splash / first-run wizard / dashboard welcome on small screens */
+  .splash-badge{width:64px;height:64px;font-size:32px;}
+  .splash-title{font-size:20px;}
+  .firstrun-modal .modal-footer{flex-direction:column;align-items:stretch;}
+  .firstrun-modal .modal-footer>div{width:100%;}
+  .firstrun-modal .modal-footer .btn{flex:1;justify-content:center;}
+  .dashboard-welcome{padding:32px 18px;}
+  .dashboard-welcome .icon{font-size:38px;}
+  .dashboard-welcome h2{font-size:16px;}
 }
