@@ -128,8 +128,23 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
   <div class="dashboard-welcome" id="dashboardWelcome" style="display:none;">
     <div class="icon">&#9878;</div>
     <h2>مرحباً بك في نظام الحسام لإدارة مكاتب المحاماة</h2>
-    <p>ابدأ رحلتك بإضافة أول قضية، وسيتولى النظام تتبع جلساتها ومهامها وأتعابها تلقائياً.</p>
-    <button class="btn btn-primary" onclick="navigate('cases');openAddModal();">&#65291; إضافة قضية جديدة</button>
+    <!-- HOTFIX (workflow correction): a case cannot be created before at least
+         one client exists — the case form's client field is populated only
+         from the registered clients list (see #clientSelectorList). The
+         first-run guidance below therefore has two states, chosen purely by
+         data.clients.length / data.cases.length in dashboard.js — no new
+         functions, both buttons call the existing openAddModal() via the
+         existing navigate()+openAddModal() pattern. -->
+    <div id="welcomeStepClient">
+      <h3>ابدأ بإضافة أول موكل</h3>
+      <p>للبدء في استخدام النظام، قم أولاً بإضافة بيانات أول موكل، ثم يمكنك إنشاء القضايا وربطها به بسهولة.</p>
+      <button class="btn btn-primary" onclick="navigate('clients');openAddModal();">&#65291; إضافة موكل جديد</button>
+    </div>
+    <div id="welcomeStepCase" style="display:none;">
+      <h3>ابدأ بإنشاء أول قضية</h3>
+      <p>تم تسجيل الموكلين بنجاح، يمكنك الآن إنشاء أول قضية وربطها بأحد الموكلين.</p>
+      <button class="btn btn-primary" onclick="navigate('cases');openAddModal();">&#65291; إضافة قضية جديدة</button>
+    </div>
   </div>
   <div class="stats-grid">
     <div class="stat-card" onclick="navigate('cases')"><div class="stat-icon">&#9878;</div><div class="stat-num" id="statCases">0</div><div class="stat-label">إجمالي القضايا</div></div>
@@ -162,7 +177,19 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
   </div>
   <div class="card"><div class="card-body" style="padding:0;">
     <div class="table-wrap"><table><thead><tr><th>رقم القضية</th><th>العنوان</th><th>النوع</th><th>الموكل</th><th>الخصم</th><th>المحكمة</th><th>الحالة</th><th>الجلسة القادمة</th><th>إجراءات</th></tr></thead><tbody id="casesTableBody"></tbody></table></div>
-    <div id="casesEmpty" class="empty-state" style="display:none;"><div class="icon">&#9878;</div><h3>لا توجد قضايا بعد</h3><p>ابدأ بإضافة أول قضية، وسيتولى النظام تتبع جلساتها ومهامها وأتعابها تلقائياً.</p><button class="btn btn-primary" style="margin-top:12px;" onclick="openAddModal()">&#65291; إضافة قضية جديدة</button></div>
+    <div id="casesEmpty" class="empty-state" style="display:none;">
+      <div class="icon">&#9878;</div>
+      <div id="casesEmptyStepClient">
+        <h3>ابدأ بإضافة أول موكل</h3>
+        <p>للبدء في استخدام النظام، قم أولاً بإضافة بيانات أول موكل، ثم يمكنك إنشاء القضايا وربطها به بسهولة.</p>
+        <button class="btn btn-primary" style="margin-top:12px;" onclick="navigate('clients');openAddModal();">&#65291; إضافة موكل جديد</button>
+      </div>
+      <div id="casesEmptyStepCase" style="display:none;">
+        <h3>ابدأ بإنشاء أول قضية</h3>
+        <p>تم تسجيل الموكلين بنجاح، يمكنك الآن إنشاء أول قضية وربطها بأحد الموكلين.</p>
+        <button class="btn btn-primary" style="margin-top:12px;" onclick="openAddModal()">&#65291; إضافة قضية جديدة</button>
+      </div>
+    </div>
   </div></div>
   <div class="mobile-card-list" id="casesMobileList"></div>
 </div>
