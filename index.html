@@ -19,11 +19,54 @@
      (never blocks on network/Sheets sync — see UX_First_Run_Report.md).
      ================================================================ -->
 <div class="splash-screen" id="splashScreen">
-  <div class="splash-badge">&#9878;</div>
-  <div class="splash-title">الحسام</div>
-  <div class="splash-subtitle">نظام إدارة مكاتب المحاماة</div>
-  <div class="splash-loading"><span class="dot"></span> جارٍ التحميل...</div>
-  <div class="splash-footer">للاستفسار — واتساب <a href="https://wa.me/201016000360" target="_blank" rel="noopener">01016000360</a></div>
+  <div class="splash-content">
+    <div class="splash-logo" aria-hidden="true">
+      <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="splashGoldRing" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="var(--gold-lt)"/>
+            <stop offset="100%" stop-color="var(--gold-dk)"/>
+          </linearGradient>
+          <linearGradient id="splashShieldFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#20334C"/>
+            <stop offset="100%" stop-color="#0D1B2A"/>
+          </linearGradient>
+        </defs>
+        <circle class="splash-logo-ring" cx="60" cy="60" r="55" fill="none" stroke="url(#splashGoldRing)" stroke-width="1.6"/>
+        <path class="splash-logo-shield" d="M60 22 L92 34 L92 60 C92 82 78 96 60 104 C42 96 28 82 28 60 L28 34 Z"
+              fill="url(#splashShieldFill)" stroke="var(--gold)" stroke-width="1.6"/>
+        <g class="splash-logo-scale" stroke="var(--gold-lt)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="60" cy="43" r="2.6" fill="var(--gold-lt)" stroke="none"/>
+          <line x1="60" y1="45" x2="60" y2="78"/>
+          <line x1="46" y1="50" x2="74" y2="50"/>
+          <line x1="46" y1="50" x2="41" y2="63"/>
+          <line x1="46" y1="50" x2="51" y2="63"/>
+          <path d="M39 63 A7 6 0 0 0 53 63"/>
+          <line x1="74" y1="50" x2="69" y2="63"/>
+          <line x1="74" y1="50" x2="79" y2="63"/>
+          <path d="M67 63 A7 6 0 0 0 81 63"/>
+          <line x1="50" y1="82" x2="70" y2="82"/>
+          <line x1="60" y1="78" x2="60" y2="82"/>
+        </g>
+      </svg>
+    </div>
+    <div class="splash-title">الحسام</div>
+    <div class="splash-subtitle">نظام إدارة مكاتب المحاماة</div>
+    <div class="splash-version">
+      <span class="splash-version-badge">v12</span>
+      <span class="splash-version-text">الإصدار 12 <span class="splash-dot">&middot;</span> Professional Edition <span class="splash-dot">&middot;</span> <span class="splash-powered">Powered by Hossam</span></span>
+    </div>
+    <div class="splash-contact">
+      <span class="splash-contact-label">للدعم الفني والاستفسارات</span>
+      <span class="splash-contact-row">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 5L2 22l5.2-1.3c1.5.8 3.1 1.3 4.8 1.3 5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3.2.8.9-3.1-.2-.3C4.2 14.7 3.8 13.4 3.8 12c0-4.5 3.7-8.2 8.2-8.2s8.2 3.7 8.2 8.2-3.7 8.2-8.2 8.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1-.2.2-.7.8-.8.9-.1.2-.3.2-.6.1-.2-.1-1-.4-1.9-1.2-.7-.6-1.2-1.4-1.3-1.6-.1-.2 0-.4.1-.5.1-.1.2-.3.4-.4.1-.1.2-.3.2-.4.1-.2 0-.3 0-.4-.1-.1-.6-1.4-.8-1.9-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 1.9s.8 2.2.9 2.4c.1.2 1.6 2.4 3.9 3.4.5.2.9.4 1.3.5.5.2 1 .1 1.3.1.4-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2-.1-.1-.2-.2-.4-.3z"/></svg>
+        <span class="splash-contact-brand">WhatsApp</span>
+        <a href="https://wa.me/201016000360" target="_blank" rel="noopener">01016000360</a>
+      </span>
+    </div>
+
+  </div>
+  <div class="splash-footer">Professional Legal Office Management System</div>
 </div>
 
 <!-- ================================================================
@@ -56,9 +99,13 @@
         <input type="text" id="wizardApiUrlInput" placeholder="https://script.google.com/macros/s/YOUR_ID/exec">
       </div>
       <div class="firstrun-result" id="firstRunResult"></div>
+      <p class="firstrun-local-note" style="font-size:12px;color:var(--muted);margin-top:14px;line-height:1.9;">
+        يمكنك استخدام البرنامج بالكامل على جهازك بدون أي اتصال خارجي.<br>
+        عند رغبتك في النسخ الاحتياطي أو المزامنة بين الأجهزة يمكنك إضافة رابط Google Apps Script لاحقاً من الإعدادات.
+      </p>
     </div>
     <div class="modal-footer" style="justify-content:space-between;">
-      <button class="btn btn-ghost btn-sm" onclick="wizardSkip()">تخطي الآن</button>
+      <button class="btn btn-ghost btn-sm" onclick="wizardStartLocal()">ابدأ محلياً الآن</button>
       <div style="display:flex;gap:9px;">
         <button class="btn btn-ghost" onclick="wizardTestConnection()">&#128269; اختبار الاتصال</button>
         <button class="btn btn-primary" onclick="wizardSaveAndStart()">&#128190; حفظ وبدء البرنامج</button>
@@ -75,27 +122,56 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
 <div class="app-shell">
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="sidebar-logo-badge">&#9878;</div>
+    <div class="sidebar-logo-badge" aria-hidden="true">
+    <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="sbGoldRing" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="var(--gold-lt)"/>
+          <stop offset="100%" stop-color="var(--gold-dk)"/>
+        </linearGradient>
+        <linearGradient id="sbShieldFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#20334C"/>
+          <stop offset="100%" stop-color="#0D1B2A"/>
+        </linearGradient>
+      </defs>
+      <circle cx="60" cy="60" r="55" fill="none" stroke="url(#sbGoldRing)" stroke-width="2.2"/>
+      <path d="M60 22 L92 34 L92 60 C92 82 78 96 60 104 C42 96 28 82 28 60 L28 34 Z"
+            fill="url(#sbShieldFill)" stroke="var(--gold)" stroke-width="2.2"/>
+      <g stroke="var(--gold-lt)" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="60" cy="43" r="3" fill="var(--gold-lt)" stroke="none"/>
+        <line x1="60" y1="45" x2="60" y2="78"/>
+        <line x1="46" y1="50" x2="74" y2="50"/>
+        <line x1="46" y1="50" x2="41" y2="63"/>
+        <line x1="46" y1="50" x2="51" y2="63"/>
+        <path d="M39 63 A7 6 0 0 0 53 63"/>
+        <line x1="74" y1="50" x2="69" y2="63"/>
+        <line x1="74" y1="50" x2="79" y2="63"/>
+        <path d="M67 63 A7 6 0 0 0 81 63"/>
+        <line x1="50" y1="82" x2="70" y2="82"/>
+        <line x1="60" y1="78" x2="60" y2="82"/>
+      </g>
+    </svg>
+  </div>
     <div class="logo-title">مكتب الحسام للمحاماة</div>
     <div class="logo-sub">المستشار حسام محمد ابراهيم | v3.0</div>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section-label">الرئيسية</div>
-    <div class="nav-item active" onclick="navigate('dashboard')"><span class="nav-icon">&#127963;</span> لوحة التحكم</div>
+    <div class="nav-item active" tabindex="0" role="link" onclick="navigate('dashboard')"><span class="nav-icon">&#127963;</span> لوحة التحكم</div>
     <div class="nav-section-label">إدارة القضايا</div>
-    <div class="nav-item" onclick="navigate('cases')"><span class="nav-icon">&#9878;</span> القضايا <span class="nav-badge" id="badgeCases">0</span></div>
-    <div class="nav-item" onclick="navigate('sessions')"><span class="nav-icon">&#128197;</span> الجلسات <span class="nav-badge" id="badgeSessions">0</span></div>
-    <div class="nav-item" onclick="navigate('clients')"><span class="nav-icon">&#128101;</span> الموكلون <span class="nav-badge" id="badgeClients">0</span></div>
-    <div class="nav-item" onclick="navigate('children')"><span class="nav-icon">&#128118;</span> الأطفال <span class="nav-badge" id="badgeChildren">0</span></div>
-    <div class="nav-item" onclick="navigate('documents')"><span class="nav-icon">&#128206;</span> المستندات <span class="nav-badge" id="badgeDocuments">0</span></div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('cases')"><span class="nav-icon">&#9878;</span> القضايا <span class="nav-badge" id="badgeCases">0</span></div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('sessions')"><span class="nav-icon">&#128197;</span> الجلسات <span class="nav-badge" id="badgeSessions">0</span></div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('clients')"><span class="nav-icon">&#128101;</span> الموكلون <span class="nav-badge" id="badgeClients">0</span></div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('children')"><span class="nav-icon">&#128118;</span> الأطفال <span class="nav-badge" id="badgeChildren">0</span></div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('documents')"><span class="nav-icon">&#128206;</span> المستندات <span class="nav-badge" id="badgeDocuments">0</span></div>
     <div class="nav-section-label">الإدارة</div>
-    <div class="nav-item" onclick="navigate('tasks')"><span class="nav-icon">&#9989;</span> المهام <span class="nav-badge" id="badgeTasks">0</span></div>
-    <div class="nav-item" onclick="navigate('fees')"><span class="nav-icon">&#128176;</span> الأتعاب <span class="nav-badge" id="badgeFees">0</span></div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('tasks')"><span class="nav-icon">&#9989;</span> المهام <span class="nav-badge" id="badgeTasks">0</span></div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('fees')"><span class="nav-icon">&#128176;</span> الأتعاب <span class="nav-badge" id="badgeFees">0</span></div>
     <div class="nav-section-label">الأدوات</div>
-    <div class="nav-item" onclick="navigate('calendar')"><span class="nav-icon">&#128467;</span> التقويم</div>
-    <div class="nav-item" onclick="navigate('library')"><span class="nav-icon">&#128218;</span> المكتبة القانونية</div>
-    <div class="nav-item" onclick="navigate('templates')"><span class="nav-icon">&#128196;</span> صيغ الدعاوى</div>
-    <div class="nav-item" onclick="navigate('settings')"><span class="nav-icon">&#9881;</span> الإعدادات</div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('calendar')"><span class="nav-icon">&#128467;</span> التقويم</div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('library')"><span class="nav-icon">&#128218;</span> المكتبة القانونية</div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('templates')"><span class="nav-icon">&#128196;</span> صيغ الدعاوى</div>
+    <div class="nav-item" tabindex="0" role="link" onclick="navigate('settings')"><span class="nav-icon">&#9881;</span> الإعدادات</div>
   </nav>
   <div class="sidebar-footer">
     <div class="api-status"><div class="status-dot" id="statusDot"></div><span id="statusText">غير متصل بـ Sheets</span></div>
@@ -320,6 +396,13 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
   <div class="settings-card">
     <div class="settings-title">&#9881; ربط Google Sheets</div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">أدخل رابط Web App الخاص بـ Code_v4.gs — سيُنشئ جدول البيانات تلقائياً عند أول اتصال</p>
+    <!-- PHASE UX-03A: shown only while no Google URL is saved (توليده/إخفاؤه
+         عبر updateConnectionStatus() في settings.js، نفس الدالة الموجودة أصلاً
+         التي تُستدعى عند كل تغيّر في حالة الاتصال — لا منطق جديد مكرر). -->
+    <div id="localModeNotice" style="display:none;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.25);border-radius:8px;padding:11px 14px;font-size:12px;color:var(--muted);margin-bottom:14px;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <span>أنت تعمل حالياً بالوضع المحلي. يمكنك إضافة رابط Google Apps Script في أي وقت لتفعيل المزامنة والنسخ الاحتياطي.</span>
+      <button class="btn btn-ghost btn-sm" style="white-space:nowrap;" onclick="document.getElementById('apiUrlInput').focus()">&#9881; إعداد المزامنة</button>
+    </div>
     <div class="form-group" style="margin-bottom:11px;"><label>رابط Apps Script Web App</label>
       <div class="api-input-wrap">
         <input type="text" id="apiUrlInput" placeholder="https://script.google.com/macros/s/YOUR_ID/exec">
