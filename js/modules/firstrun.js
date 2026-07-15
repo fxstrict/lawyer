@@ -58,13 +58,15 @@ function hideSplashAndCheckFirstRun() {
   checkFirstRunWizard();
 }
 
-// Shows the wizard whenever no Google Apps Script URL is saved yet —
-// including if the user (or Settings page "مسح البيانات") removes it
-// later and the app is reloaded, per the phase brief.
+// Shows the wizard whenever no Google Apps Script URL is saved yet AND
+// the user has not previously chosen to start in local-only mode.
+// PHASE UX-03A: once 'localModeChosen' is set (via wizardStartLocal()),
+// the wizard never reappears automatically again — connecting Google
+// later is entirely optional and handled from the Settings page instead.
 function checkFirstRunWizard() {
   var wiz = document.getElementById('firstRunWizard');
   if (!wiz) return;
-  if (!API_URL) {
+  if (!API_URL && !localStorage.getItem('localModeChosen')) {
     wiz.classList.add('open');
   } else {
     wiz.classList.remove('open');
@@ -115,17 +117,20 @@ function wizardSaveAndStart() {
   }
 }
 
-// Not part of the literal phase brief, but included so an offline-only
-// user (a scenario the wizard's own privacy text describes as fully
-// supported) is never blocked from the app on first run. Session-only:
-// since no 'apiUrl' is written, the wizard will correctly reappear on
-// the next load per checkFirstRunWizard() above — flagged in
-// docs/UX_First_Run_Report.md for explicit approval.
-function wizardSkip() {
+// PHASE UX-03A: renamed from wizardSkip() — this is no longer framed as
+// "skipping" a required step. The app is fully local-first; Google Sync
+// is an optional add-on. Persists the choice in localStorage so the
+// wizard never reappears automatically on future launches (see
+// checkFirstRunWizard() above). Still exactly as before: no fetch, no
+// URL saved, no loading overlay — closes the wizard over the dashboard
+// that is already fully rendered from local data.
+function wizardStartLocal() {
+  localStorage.setItem('localModeChosen', '1');
   closeFirstRunWizard();
   if (typeof toast === 'function') {
-    toast('يمكنك ربط Google Sheets لاحقاً من صفحة الإعدادات', 'info');
+    toast('يعمل البرنامج الآن محلياً على جهازك — يمكنك إضافة رابط Google Apps Script لاحقاً من الإعدادات', 'success');
   }
+  if (typeof updateConnectionStatus === 'function') updateConnectionStatus();
 }
 
 function closeFirstRunWizard() {

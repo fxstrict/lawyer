@@ -74,6 +74,12 @@ function updateConnectionStatus(){
   var dot=document.getElementById('statusDot'),tx=document.getElementById('statusText');
   if(API_URL){dot.classList.add('connected');dot.classList.remove('error');tx.textContent='متصل بـ Google Sheets';}
   else{dot.classList.remove('connected','error');tx.textContent='غير متصل بـ Sheets';}
+  // PHASE UX-03A: small non-blocking notice in Settings ("أنت تعمل حالياً
+  // بالوضع المحلي...") — visible only while no Google URL is configured.
+  // Reuses this same function (already the single place connection-state
+  // changes flow through) instead of adding a new call site.
+  var notice=document.getElementById('localModeNotice');
+  if(notice)notice.style.display=API_URL?'none':'flex';
   if(typeof updateTopbarSyncMeta==='function')updateTopbarSyncMeta();
 }
 async function pingConnection(){
@@ -128,29 +134,105 @@ async function syncDeleteToSheets(sheet,rowIndex){
 // the topbar, never a screen-covering overlay.
 var _syncIndicatorHideTimer=null;
 function showSyncIndicator(v){
+  // PHASE UX-03: this stays the single entry point for every sync-state
+  // transition in the app. It still drives the transient floating pill
+  // (#syncIndicator, unchanged behavior below) AND now also drives the
+  // persistent topbar status (#topbarLastSync) via _topbarSyncState +
+  // updateTopbarSyncMeta() — so the two widgets can never say different
+  // things, and no sync event needs to be handled in more than one place.
   var el=document.getElementById('syncIndicator');
-  if(!el)return;
-  var textEl=document.getElementById('syncIndicatorText');
+  var textEl=el?document.getElementById('syncIndicatorText'):null;
   if(_syncIndicatorHideTimer){clearTimeout(_syncIndicatorHideTimer);_syncIndicatorHideTimer=null;}
-  el.classList.remove('success','error');
+  if(_topbarSyncSuccessTimer){clearTimeout(_topbarSyncSuccessTimer);_topbarSyncSuccessTimer=null;}
+  if(el)el.classList.remove('success','error');
   if(v===true){
     if(textEl)textEl.textContent='جارٍ المزامنة…';
-    el.classList.add('show');
+    if(el)el.classList.add('show');
+    _topbarSyncState='syncing';
+    if(typeof updateTopbarSyncMeta==='function')updateTopbarSyncMeta();
   }else if(v==='success'){
     if(textEl)textEl.textContent='تمت المزامنة';
-    el.classList.add('show','success');
-    _syncIndicatorHideTimer=setTimeout(function(){el.classList.remove('show','success');},2500);
+    if(el)el.classList.add('show','success');
+    _syncIndicatorHideTimer=setTimeout(function(){if(el)el.classList.remove('show','success');},2500);
+    // Persistent widget: show the ✅ confirmation for 3s (per spec), then
+    // fall back to idle — which recomputes the relative time from the
+    // lastSyncAt timestamp the caller already saved (typically "منذ لحظات").
+    _topbarSyncState='success';
+    if(typeof updateTopbarSyncMeta==='function')updateTopbarSyncMeta();
+    _topbarSyncSuccessTimer=setTimeout(function(){
+      _topbarSyncState=null;
+      if(typeof updateTopbarSyncMeta==='function')updateTopbarSyncMeta();
+    },3000);
   }else if(v==='error'){
     if(textEl)textEl.textContent='العمل بالبيانات المحلية';
-    el.classList.add('show','error');
-    _syncIndicatorHideTimer=setTimeout(function(){el.classList.remove('show','error');},4000);
+    if(el)el.classList.add('show','error');
+    _syncIndicatorHideTimer=setTimeout(function(){if(el)el.classList.remove('show','error');},4000);
+    // Persistent widget: stays on the ⚠️ error state (does not auto-hide,
+    // does not get overwritten by the 60s interval) until the next sync
+    // attempt calls showSyncIndicator(true) or ('success') again.
+    _topbarSyncState='error';
+    if(typeof updateTopbarSyncMeta==='function')updateTopbarSyncMeta();
   }else{
-    el.classList.remove('show');
+    if(el)el.classList.remove('show');
+    // v===false: clears only the transient pill (legacy behavior,
+    // unchanged). The persistent widget is intentionally left alone —
+    // it is about to receive its real state a moment later (success/
+    // error) from the same loadFromSheets() call that triggered this.
   }
 }
 
-// Topbar connection/last-sync meta — PHASE UX-02 item 4. Independent of the sidebar's
-// #statusDot/#statusText (untouched); reads only localStorage + API_URL, never blocks.
+// ==================================================================
+// PHASE UX-03 HOTFIX — Professional Last-Sync Status (Top Bar)
+// ==================================================================
+// Design in one paragraph: #topbarLastSync becomes a small persistent
+// status area (Notion/Drive/Dropbox-style) driven by a single state
+// variable (_topbarSyncState) and rendered by a single function
+// (updateTopbarSyncMeta, below). Every sync event already funnels
+// through showSyncIndicator() (PHASE UX-02) — that remains the ONLY
+// call site that changes sync state, so the logic is not duplicated
+// anywhere else. A single setInterval (60s, text-only, no fetch) keeps
+// the relative time ("منذ دقيقة"/"منذ ساعة"/...) fresh while idle.
+// Does not touch Repository/Database/Cache/Undo/Boot/Apps Script.
+// ==================================================================
+
+// The ONLY function that turns a timestamp into "منذ ..." text. Used by
+// updateTopbarSyncMeta() and nowhere else, so phrasing can never drift.
+function formatLastSyncRelative(iso){
+  if(!iso)return null;
+  var then=new Date(iso).getTime();
+  if(isNaN(then))return null;
+  var diffSec=Math.max(0,Math.floor((Date.now()-then)/1000));
+  if(diffSec<60)return'منذ لحظات';
+  var m=Math.floor(diffSec/60);
+  if(m<60){
+    if(m===1)return'منذ دقيقة';
+    if(m===2)return'منذ دقيقتين';
+    if(m<=10)return'منذ '+m+' دقائق';
+    return'منذ '+m+' دقيقة';
+  }
+  var h=Math.floor(diffSec/3600);
+  if(h<24){
+    if(h===1)return'منذ ساعة';
+    if(h===2)return'منذ ساعتين';
+    if(h<=10)return'منذ '+h+' ساعات';
+    return'منذ '+h+' ساعة';
+  }
+  var d=Math.floor(diffSec/86400);
+  if(d===1)return'منذ يوم';
+  if(d===2)return'منذ يومين';
+  if(d<=10)return'منذ '+d+' أيام';
+  return'منذ '+d+' يوم';
+}
+
+// 'syncing' | 'success' | 'error' | null(=idle, show relative time / local-data fallback)
+var _topbarSyncState=null;
+var _topbarSyncSuccessTimer=null;
+var _topbarSyncIntervalStarted=false;
+
+// Topbar connection/last-sync meta — PHASE UX-02 item 4, extended PHASE UX-03.
+// Independent of the sidebar's #statusDot/#statusText (untouched); reads only
+// localStorage + API_URL + _topbarSyncState, never blocks, never fetches.
+// This is the ONLY function that writes to #topbarLastSync.
 function updateTopbarSyncMeta(){
   var dot=document.getElementById('topbarConnDot'),tx=document.getElementById('topbarConnText');
   if(dot&&tx){
@@ -159,14 +241,37 @@ function updateTopbarSyncMeta(){
   }
   var lsEl=document.getElementById('topbarLastSync');
   if(lsEl){
-    var ts=localStorage.getItem('lastSyncAt');
-    lsEl.textContent=ts?('آخر مزامنة '+new Date(ts).toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})):'';
+    lsEl.classList.remove('is-syncing','is-success','is-error','is-idle');
+    if(_topbarSyncState==='syncing'){
+      lsEl.textContent='🟡 جارٍ المزامنة...';
+      lsEl.classList.add('is-syncing');
+    }else if(_topbarSyncState==='success'){
+      lsEl.textContent='✅ تمت المزامنة';
+      lsEl.classList.add('is-success');
+    }else if(_topbarSyncState==='error'){
+      lsEl.textContent='⚠️ تعذر الاتصال — العمل بالبيانات المحلية';
+      lsEl.classList.add('is-error');
+    }else{
+      var ts=localStorage.getItem('lastSyncAt');
+      var rel=formatLastSyncRelative(ts);
+      lsEl.textContent=rel?('🕒 آخر مزامنة '+rel):'📂 آخر مزامنة — من البيانات المحلية';
+      lsEl.classList.add('is-idle');
+    }
   }
   var nameEl=document.getElementById('topbarUserName');
   if(nameEl){
     var uname=localStorage.getItem('userName');
     if(uname){nameEl.textContent=uname;nameEl.style.display='';}
     else nameEl.style.display='none';
+  }
+  // Single interval, started once, browser-only: re-renders the relative
+  // text every 60s while idle. No fetch, no request, no state mutation —
+  // just calls this same function again.
+  if(!_topbarSyncIntervalStarted&&typeof window!=='undefined'&&typeof window.setInterval==='function'){
+    _topbarSyncIntervalStarted=true;
+    window.setInterval(function(){
+      if(_topbarSyncState===null)updateTopbarSyncMeta();
+    },60000);
   }
 }
 
@@ -217,3 +322,15 @@ async function loadFromSheets(){
 }
 
 async function refreshAll(){if(API_URL)await loadFromSheets();else toast('أضف رابط Apps Script في الإعدادات للمزامنة السحابية','info');renderDashboard();}
+
+// ==================================================================
+// Node/test export (browser: `module` is undefined, this is a no-op —
+// every function above remains a plain global exactly as before).
+// PHASE UX-03: exposes formatLastSyncRelative for the pure-function
+// test harness (js/tests/verify_topbar_sync_status.js).
+// ==================================================================
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    formatLastSyncRelative: formatLastSyncRelative
+  };
+}
