@@ -81,6 +81,14 @@ function renderDashboard(){
       if(statsGrid)statsGrid.style.display='none';
       if(dashGrid)dashGrid.style.display='none';
       if(sectionTitle)sectionTitle.style.display='none';
+      // HOTFIX (workflow correction): a case requires at least one existing
+      // client, so guide the user to add a client first when both are empty.
+      var stepClient=document.getElementById('welcomeStepClient');
+      var stepCase=document.getElementById('welcomeStepCase');
+      if(stepClient&&stepCase){
+        if(!data.clients.length){stepClient.style.display='';stepCase.style.display='none';}
+        else{stepClient.style.display='none';stepCase.style.display='';}
+      }
     }else{
       dw.style.display='none';
       if(statsGrid)statsGrid.style.display='';
