@@ -1,7 +1,7 @@
 @media(max-width:768px){
   .sidebar{transform:translateX(100%);}
   .sidebar.open{transform:translateX(0);}
-  .sidebar-overlay{display:none;}.sidebar-overlay.open{display:block;}
+  .sidebar-overlay.open{opacity:1;visibility:visible;pointer-events:auto;}
   .main{margin-right:0;}.burger{display:flex;}
   .page{padding:12px;}.topbar{padding:11px 14px;}.topbar-title{font-size:15px;}
   .topbar-actions .btn-ghost{display:none;}
@@ -29,9 +29,20 @@
   #modalView .btn-sm{padding:5px 8px;font-size:10px;}
   /* Cases mobile card actions */
   .m-card-actions{flex-wrap:wrap;}
-  /* PHASE UX-01: splash / first-run wizard / dashboard welcome on small screens */
-  .splash-badge{width:64px;height:64px;font-size:32px;}
-  .splash-title{font-size:20px;}
+  /* PHASE UX-05: modern sidebar on small screens */
+  .sidebar{width:280px;}
+  .sidebar-logo{padding:18px 16px 15px;}
+  .sidebar-logo-badge{width:38px;height:38px;}
+  .nav-item{padding:11px 13px;}
+  /* PHASE UX-04A: splash / first-run wizard / dashboard welcome on small screens */
+  .splash-logo{width:82px;height:82px;margin-bottom:14px;}
+  .splash-title{font-size:21px;}
+  .splash-subtitle{font-size:12.5px;}
+  .splash-content{padding:0 18px;}
+  .splash-version{flex-wrap:wrap;gap:6px;}
+  .splash-version-text{font-size:10px;}
+  .splash-contact-label{font-size:10px;}
+  .splash-contact-row{font-size:11px;}
   .firstrun-modal .modal-footer{flex-direction:column;align-items:stretch;}
   .firstrun-modal .modal-footer>div{width:100%;}
   .firstrun-modal .modal-footer .btn{flex:1;justify-content:center;}
