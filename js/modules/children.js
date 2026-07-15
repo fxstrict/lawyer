@@ -226,6 +226,73 @@ if (typeof ChildrenRepository !== 'function') {
 var childrenRepository = new ChildrenRepository();
 
 /**
+ * PHASE 12 — SUB-PHASE 12.5 — General Undo Integration.
+ * js/core/UndoManager.js and js/core/UndoReconciler.js are required
+ * here the same dual Node/browser way childrenRepository is required above,
+ * mirroring the exact pattern SUB-PHASE 12.4 established for
+ * `casesRepository`/`casesUndoManager` in js/modules/cases.js, and
+ * generalized to every entity module by this phase's pre-audit
+ * (PHASE_12_5_PRE_AUDIT_Undo_Generalization.md §4/§6). Neither file is
+ * modified by this phase. Degrades gracefully exactly like Cases: a
+ * missing dependency disables Undo/Redo for this module only — every
+ * pre-existing CRUD/render/sync/toast behavior in this file is
+ * completely unaffected either way.
+ */
+var UndoManagerNS = (typeof module !== 'undefined' && module.exports)
+  ? require('../core/UndoManager.js')
+  : (typeof window !== 'undefined' ? window : this);
+
+var UndoManager = UndoManagerNS && UndoManagerNS.UndoManager;
+
+if (typeof UndoManager !== 'function') {
+  if (typeof console !== 'undefined' && console.warn) {
+    console.warn(
+      'children.js: js/core/UndoManager.js was not found (index.html has ' +
+      'not yet added its <script> tag for it). This module continues ' +
+      'to work exactly as before this phase; undoLastChildAction()/' +
+      'redoLastChildAction() will simply report nothing to undo/redo ' +
+      'until this dependency is wired.'
+    );
+  }
+  UndoManager = null;
+}
+
+var UndoReconcilerNS = (typeof module !== 'undefined' && module.exports)
+  ? require('../core/UndoReconciler.js')
+  : (typeof window !== 'undefined' ? window : this);
+
+var UndoReconciler = UndoReconcilerNS && UndoReconcilerNS.UndoReconciler
+  ? UndoReconcilerNS.UndoReconciler
+  : UndoReconcilerNS;
+
+if (!UndoReconciler || typeof UndoReconciler.applyUndoInstruction !== 'function') {
+  if (typeof console !== 'undefined' && console.warn) {
+    console.warn(
+      'children.js: js/core/UndoReconciler.js was not found (index.html has ' +
+      'not yet added its <script> tag for it). undoLastChildAction()/' +
+      'redoLastChildAction() will simply report nothing to undo/redo ' +
+      'until this dependency is wired.'
+    );
+  }
+  UndoReconciler = null;
+}
+
+/**
+ * ChildrenUndoManager — PHASE 12.5: the single UndoManager instance
+ * wired to `childrenRepository` via the public `setUndoManager()` façade
+ * (SUB-PHASE 12.3, js/core/Repository.js, NOT modified by this phase).
+ * Each entity module constructs and wires its OWN UndoManager instance
+ * — this one is never shared with any other module — so that
+ * Undo/Redo history for Children stays completely separate from every
+ * other entity's history (Phase 12.5 brief §11), exactly as already
+ * true for `casesUndoManager` in js/modules/cases.js.
+ */
+var childrenUndoManager = (typeof UndoManager === 'function') ? new UndoManager(childrenRepository) : null;
+if (childrenUndoManager) {
+  childrenRepository.setUndoManager(childrenUndoManager);
+}
+
+/**
  * Resolves once ChildrenRepository.open() has loaded its initial
  * in-memory copy from storage (Repository Contract §11: Create -> Open
  * -> Ready). Every write path awaits this before touching the
@@ -481,8 +548,116 @@ function renderChildren(){
 // openAddChildModal/saveChild/editChild/deleteChild/renderChildren
 // remain plain global functions exactly as before).
 // ================================================================
+
+// ================================================================
+// UNDO / REDO — تراجع / إعادة (PHASE 12 — SUB-PHASE 12.5 — General Undo
+// Integration)
+// ================================================================
+// Reversal mapping, redo-stack suspension, and instruction application
+// are all handled by the shared js/core/UndoReconciler.js (extracted
+// from the Cases pilot, SUB-PHASE 12.4 → 12.5) — this module only
+// supplies its own `childrenRepository`/`CHILDREN_ID_FIELD` and its own refresh sequence
+// (`sync/saveLocal/render/updateBadges/toast`), matching every other
+// entity module's `restoreChild()` refresh sequence exactly.
+//
+// `childrenRepository` disables no operations (`unsupportedOperations: []`,
+// confirmed in js/repositories/ChildrenRepository.js), so every reversal
+// mapping case (create/update/delete/restore) is legal for this
+// entity — same as Cases.
+
+/**
+ * undoLastChildAction() — PHASE 12.5. Reverses the most recent
+ * Children mutation (create/update/delete/restore). Mirrors
+ * `undoLastCaseAction()` (js/modules/cases.js) exactly: same guard on
+ * `canUndo()`, same use of the shared `UndoReconciler.applyUndoInstruction()`,
+ * same refresh sequence, same graceful handling of empty history, a
+ * Repository/persist failure, or any unexpected exception.
+ * @returns {Promise<void>}
+ */
+async function undoLastChildAction() {
+  await ensureChildrenRepositoryReady();
+
+  try {
+    if (!childrenRepository.canUndo()) {
+      toast('لا يوجد إجراء للتراجع عنه', 'info');
+      return;
+    }
+
+    var instruction = childrenRepository.undo();
+    if (!instruction) {
+      toast('لا يوجد إجراء للتراجع عنه', 'info');
+      return;
+    }
+
+    if (!UndoReconciler) {
+      toast('حدث خطأ أثناء التراجع', 'error');
+      return;
+    }
+
+    var result = await UndoReconciler.applyUndoInstruction(childrenRepository, CHILDREN_ID_FIELD, instruction, 'undo');
+    if (!result || !result.success) {
+      toast('حدث خطأ أثناء التراجع', 'error');
+      return;
+    }
+
+    syncChildrenMirror();
+    saveLocal();
+    renderChildren();
+    updateBadges();
+    toast('تم التراجع', 'success');
+  } catch (e) {
+    toast('حدث خطأ أثناء التراجع', 'error');
+  }
+}
+
+/**
+ * redoLastChildAction() — PHASE 12.5. Re-applies the most recently
+ * undone Children mutation. Same refresh sequence, same shared-utility
+ * usage, same error-handling guarantees as `undoLastChildAction()`
+ * above — mirrors `redoLastCaseAction()` exactly.
+ * @returns {Promise<void>}
+ */
+async function redoLastChildAction() {
+  await ensureChildrenRepositoryReady();
+
+  try {
+    if (!childrenRepository.canRedo()) {
+      toast('لا يوجد إجراء لإعادته', 'info');
+      return;
+    }
+
+    var instruction = childrenRepository.redo();
+    if (!instruction) {
+      toast('لا يوجد إجراء لإعادته', 'info');
+      return;
+    }
+
+    if (!UndoReconciler) {
+      toast('حدث خطأ أثناء الإعادة', 'error');
+      return;
+    }
+
+    var result = await UndoReconciler.applyUndoInstruction(childrenRepository, CHILDREN_ID_FIELD, instruction, 'redo');
+    if (!result || !result.success) {
+      toast('حدث خطأ أثناء الإعادة', 'error');
+      return;
+    }
+
+    syncChildrenMirror();
+    saveLocal();
+    renderChildren();
+    updateBadges();
+    toast('تمت الإعادة', 'success');
+  } catch (e) {
+    toast('حدث خطأ أثناء الإعادة', 'error');
+  }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    childrenUndoManager: childrenUndoManager,
+    undoLastChildAction: undoLastChildAction,
+    redoLastChildAction: redoLastChildAction,
     CHILDREN_ID_FIELD: CHILDREN_ID_FIELD,
     childrenRepository: childrenRepository,
     ensureChildrenRepositoryReady: ensureChildrenRepositoryReady,

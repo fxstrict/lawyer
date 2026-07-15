@@ -259,6 +259,73 @@ if (typeof LibraryRepository !== 'function') {
 var libraryRepository = new LibraryRepository();
 
 /**
+ * PHASE 12 — SUB-PHASE 12.5 — General Undo Integration.
+ * js/core/UndoManager.js and js/core/UndoReconciler.js are required
+ * here the same dual Node/browser way libraryRepository is required above,
+ * mirroring the exact pattern SUB-PHASE 12.4 established for
+ * `casesRepository`/`casesUndoManager` in js/modules/cases.js, and
+ * generalized to every entity module by this phase's pre-audit
+ * (PHASE_12_5_PRE_AUDIT_Undo_Generalization.md §4/§6). Neither file is
+ * modified by this phase. Degrades gracefully exactly like Cases: a
+ * missing dependency disables Undo/Redo for this module only — every
+ * pre-existing CRUD/render/sync/toast behavior in this file is
+ * completely unaffected either way.
+ */
+var UndoManagerNS = (typeof module !== 'undefined' && module.exports)
+  ? require('../core/UndoManager.js')
+  : (typeof window !== 'undefined' ? window : this);
+
+var UndoManager = UndoManagerNS && UndoManagerNS.UndoManager;
+
+if (typeof UndoManager !== 'function') {
+  if (typeof console !== 'undefined' && console.warn) {
+    console.warn(
+      'library.js: js/core/UndoManager.js was not found (index.html has ' +
+      'not yet added its <script> tag for it). This module continues ' +
+      'to work exactly as before this phase; undoLastLibBookAction()/' +
+      'redoLastLibBookAction() will simply report nothing to undo/redo ' +
+      'until this dependency is wired.'
+    );
+  }
+  UndoManager = null;
+}
+
+var UndoReconcilerNS = (typeof module !== 'undefined' && module.exports)
+  ? require('../core/UndoReconciler.js')
+  : (typeof window !== 'undefined' ? window : this);
+
+var UndoReconciler = UndoReconcilerNS && UndoReconcilerNS.UndoReconciler
+  ? UndoReconcilerNS.UndoReconciler
+  : UndoReconcilerNS;
+
+if (!UndoReconciler || typeof UndoReconciler.applyUndoInstruction !== 'function') {
+  if (typeof console !== 'undefined' && console.warn) {
+    console.warn(
+      'library.js: js/core/UndoReconciler.js was not found (index.html has ' +
+      'not yet added its <script> tag for it). undoLastLibBookAction()/' +
+      'redoLastLibBookAction() will simply report nothing to undo/redo ' +
+      'until this dependency is wired.'
+    );
+  }
+  UndoReconciler = null;
+}
+
+/**
+ * LibraryUndoManager — PHASE 12.5: the single UndoManager instance
+ * wired to `libraryRepository` via the public `setUndoManager()` façade
+ * (SUB-PHASE 12.3, js/core/Repository.js, NOT modified by this phase).
+ * Each entity module constructs and wires its OWN UndoManager instance
+ * — this one is never shared with any other module — so that
+ * Undo/Redo history for Library stays completely separate from every
+ * other entity's history (Phase 12.5 brief §11), exactly as already
+ * true for `casesUndoManager` in js/modules/cases.js.
+ */
+var libraryUndoManager = (typeof UndoManager === 'function') ? new UndoManager(libraryRepository) : null;
+if (libraryUndoManager) {
+  libraryRepository.setUndoManager(libraryUndoManager);
+}
+
+/**
  * Resolves once LibraryRepository.open() has loaded its initial
  * in-memory copy from storage (Repository Contract §11: Create -> Open
  * -> Ready). Every write path awaits this before touching the
@@ -568,8 +635,114 @@ async function restoreLibBook(id) {
 // renderLibrary/saveLibBook/editLibBook/deleteLibBook remain plain
 // global functions exactly as before).
 // ================================================================
+
+// ================================================================
+// UNDO / REDO — تراجع / إعادة (PHASE 12 — SUB-PHASE 12.5 — General Undo
+// Integration)
+// ================================================================
+// Reversal mapping, redo-stack suspension, and instruction application
+// are all handled by the shared js/core/UndoReconciler.js (extracted
+// from the Cases pilot, SUB-PHASE 12.4 → 12.5) — this module only
+// supplies its own `libraryRepository`/`LIBRARY_ID_FIELD` and its own refresh sequence
+// (`sync/saveLocal/render (no badge concept for this entity)/toast`), matching every other
+// entity module's `restoreLibBook()` refresh sequence exactly.
+//
+// `libraryRepository` disables no operations (`unsupportedOperations: []`,
+// confirmed in js/repositories/LibraryRepository.js), so every reversal
+// mapping case (create/update/delete/restore) is legal for this
+// entity — same as Cases.
+
+/**
+ * undoLastLibBookAction() — PHASE 12.5. Reverses the most recent
+ * Library mutation (create/update/delete/restore). Mirrors
+ * `undoLastCaseAction()` (js/modules/cases.js) exactly: same guard on
+ * `canUndo()`, same use of the shared `UndoReconciler.applyUndoInstruction()`,
+ * same refresh sequence, same graceful handling of empty history, a
+ * Repository/persist failure, or any unexpected exception.
+ * @returns {Promise<void>}
+ */
+async function undoLastLibBookAction() {
+  await ensureLibraryRepositoryReady();
+
+  try {
+    if (!libraryRepository.canUndo()) {
+      toast('لا يوجد إجراء للتراجع عنه', 'info');
+      return;
+    }
+
+    var instruction = libraryRepository.undo();
+    if (!instruction) {
+      toast('لا يوجد إجراء للتراجع عنه', 'info');
+      return;
+    }
+
+    if (!UndoReconciler) {
+      toast('حدث خطأ أثناء التراجع', 'error');
+      return;
+    }
+
+    var result = await UndoReconciler.applyUndoInstruction(libraryRepository, LIBRARY_ID_FIELD, instruction, 'undo');
+    if (!result || !result.success) {
+      toast('حدث خطأ أثناء التراجع', 'error');
+      return;
+    }
+
+    syncLibraryMirror();
+    saveLocal();
+    renderLibrary();
+    toast('تم التراجع', 'success');
+  } catch (e) {
+    toast('حدث خطأ أثناء التراجع', 'error');
+  }
+}
+
+/**
+ * redoLastLibBookAction() — PHASE 12.5. Re-applies the most recently
+ * undone Library mutation. Same refresh sequence, same shared-utility
+ * usage, same error-handling guarantees as `undoLastLibBookAction()`
+ * above — mirrors `redoLastCaseAction()` exactly.
+ * @returns {Promise<void>}
+ */
+async function redoLastLibBookAction() {
+  await ensureLibraryRepositoryReady();
+
+  try {
+    if (!libraryRepository.canRedo()) {
+      toast('لا يوجد إجراء لإعادته', 'info');
+      return;
+    }
+
+    var instruction = libraryRepository.redo();
+    if (!instruction) {
+      toast('لا يوجد إجراء لإعادته', 'info');
+      return;
+    }
+
+    if (!UndoReconciler) {
+      toast('حدث خطأ أثناء الإعادة', 'error');
+      return;
+    }
+
+    var result = await UndoReconciler.applyUndoInstruction(libraryRepository, LIBRARY_ID_FIELD, instruction, 'redo');
+    if (!result || !result.success) {
+      toast('حدث خطأ أثناء الإعادة', 'error');
+      return;
+    }
+
+    syncLibraryMirror();
+    saveLocal();
+    renderLibrary();
+    toast('تمت الإعادة', 'success');
+  } catch (e) {
+    toast('حدث خطأ أثناء الإعادة', 'error');
+  }
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    libraryUndoManager: libraryUndoManager,
+    undoLastLibBookAction: undoLastLibBookAction,
+    redoLastLibBookAction: redoLastLibBookAction,
     LIBRARY_FIELDS: LIBRARY_FIELDS,
     LIBRARY_MAP: LIBRARY_MAP,
     LIBRARY_ID_FIELD: LIBRARY_ID_FIELD,

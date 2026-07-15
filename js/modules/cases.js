@@ -300,6 +300,38 @@ if (typeof UndoManager !== 'function') {
   UndoManager = null;
 }
 
+// PHASE 12 — SUB-PHASE 12.5 — General Undo Integration.
+// js/core/UndoReconciler.js (new this phase) extracts the reconciliation
+// logic this file previously implemented locally (_resolveUndoEntryId /
+// _withUndoManagerSuspended / _applyCasesUndoInstruction, SUB-PHASE
+// 12.4) into an entity-agnostic shared utility, per the Phase 12.5
+// pre-audit's finding (PHASE_12_5_PRE_AUDIT_Undo_Generalization.md §4)
+// that none of that logic actually depended on anything Cases-specific
+// beyond `casesRepository`/`CASES_ID_FIELD`. Loaded the same dual
+// Node/browser way as every other core/ file. Degrades gracefully (see
+// below) exactly like UndoManager above — a missing UndoReconciler
+// disables Undo/Redo only, never the primary Cases path.
+var UndoReconcilerNS = (typeof module !== 'undefined' && module.exports)
+  ? require('../core/UndoReconciler.js')
+  : (typeof window !== 'undefined' ? window : this);
+
+var UndoReconciler = UndoReconcilerNS && UndoReconcilerNS.UndoReconciler
+  ? UndoReconcilerNS.UndoReconciler
+  : UndoReconcilerNS;
+
+if (!UndoReconciler || typeof UndoReconciler.applyUndoInstruction !== 'function') {
+  if (typeof console !== 'undefined' && console.warn) {
+    console.warn(
+      'cases.js: js/core/UndoReconciler.js was not found (index.html has ' +
+      'not yet added its <script> tag for it). Cases continues to work ' +
+      'exactly as before this phase; undoLastCaseAction()/' +
+      'redoLastCaseAction() will simply report nothing to undo/redo ' +
+      'until this dependency is wired.'
+    );
+  }
+  UndoReconciler = null;
+}
+
 /**
  * Identifier field name — must match CasesRepository's own
  * CASES_ID_FIELD constant exactly (js/repositories/CasesRepository.js,
@@ -771,87 +803,24 @@ async function restoreCase(id) {
 // then re-wiring it immediately after, success or failure.
 
 /**
- * @private Runs `fn` (expected to return a Promise) with
- * `casesRepository`'s UndoManager temporarily unwired, so the mutation
- * `fn` performs is never itself recorded as new undo history. Always
- * restores the original manager afterward, even if `fn` throws/rejects.
- * @param {Function} fn
- * @returns {Promise<*>}
- */
-async function _withUndoManagerSuspended(fn) {
-  var manager = casesRepository.getUndoManager();
-  casesRepository.setUndoManager(null);
-  try {
-    return await fn();
-  } finally {
-    casesRepository.setUndoManager(manager);
-  }
-}
-
-/**
- * @private Resolves the CasesRepository id (رقم_القضية) an undo/redo
- * snapshot instruction refers to. Prefers `after`, falls back to
- * `before` (a 'delete' entry has no `after`).
- * @param {?Object} before
- * @param {?Object} after
- * @returns {?string}
- */
-function _resolveUndoEntryId(before, after) {
-  if (after && after[CASES_ID_FIELD] != null) return after[CASES_ID_FIELD];
-  if (before && before[CASES_ID_FIELD] != null) return before[CASES_ID_FIELD];
-  return null;
-}
-
-/**
- * @private Applies one snapshot instruction (as returned by
- * `casesRepository.undo()`/`.redo()`) in the given `direction`, per the
- * REVERSAL MAPPING documented above. Never throws — every failure path
- * (malformed entry, unknown action, missing id, Repository rejection,
- * persist failure) is normalized into a `WriteResult`-shaped
- * `{success:false, error}` so callers have one uniform shape to check.
+ * @private PHASE 12.5: thin delegation to the shared
+ * `UndoReconciler.applyUndoInstruction()` (js/core/UndoReconciler.js),
+ * binding it to `casesRepository`/`CASES_ID_FIELD`. Behavior is
+ * byte-identical to SUB-PHASE 12.4's own local implementation (the
+ * REVERSAL MAPPING documented above this section was extracted
+ * verbatim into UndoReconciler.js — see that file's own header) —
+ * this function now exists only to preserve this file's previous
+ * internal call shape (`_applyCasesUndoInstruction(instruction,
+ * direction)`) for `undoLastCaseAction()`/`redoLastCaseAction()` below.
  * @param {?{action:string, before:?Object, after:?Object, metadata:Object}} instruction
  * @param {'undo'|'redo'} direction
  * @returns {Promise<{success:boolean, record:?Object, error:?Object}>}
  */
 async function _applyCasesUndoInstruction(instruction, direction) {
-  if (!instruction || typeof instruction !== 'object') {
-    return { success: false, record: null, error: { message: 'empty undo/redo instruction' } };
+  if (!UndoReconciler) {
+    return { success: false, record: null, error: { message: 'UndoReconciler is not available (js/core/UndoReconciler.js not loaded)' } };
   }
-
-  var action = instruction.action;
-  var before = instruction.before;
-  var after = instruction.after;
-
-  if (Array.isArray(before) || Array.isArray(after)) {
-    // Bulk-shaped entry (bulkInsert/bulkUpdate/bulkDelete/import/clear/
-    // transaction) — never produced by this module's own calls, but
-    // guarded defensively rather than assumed impossible.
-    return { success: false, record: null, error: { message: 'bulk-shaped undo entries are not supported by the Cases pilot' } };
-  }
-
-  var id = _resolveUndoEntryId(before, after);
-  if (id == null) {
-    return { success: false, record: null, error: { message: 'could not resolve a case id from the undo/redo entry' } };
-  }
-
-  return _withUndoManagerSuspended(async function () {
-    try {
-      if (direction === 'undo') {
-        if (action === 'create')  return await casesRepository.delete(id);
-        if (action === 'delete')  return await casesRepository.restore(id);
-        if (action === 'restore') return await casesRepository.delete(id);
-        if (action === 'update')  return await casesRepository.update(id, before, { allowDeleted: true });
-      } else {
-        if (action === 'create')  return await casesRepository.restore(id);
-        if (action === 'delete')  return await casesRepository.delete(id);
-        if (action === 'restore') return await casesRepository.restore(id);
-        if (action === 'update')  return await casesRepository.update(id, after, { allowDeleted: true });
-      }
-      return { success: false, record: null, error: { message: 'unknown undo/redo action type: ' + action } };
-    } catch (e) {
-      return { success: false, record: null, error: { message: e && e.message ? e.message : String(e) } };
-    }
-  });
+  return UndoReconciler.applyUndoInstruction(casesRepository, CASES_ID_FIELD, instruction, direction);
 }
 
 /**

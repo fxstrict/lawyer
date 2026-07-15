@@ -229,34 +229,51 @@ var _topbarSyncState=null;
 var _topbarSyncSuccessTimer=null;
 var _topbarSyncIntervalStarted=false;
 
-// Topbar connection/last-sync meta — PHASE UX-02 item 4, extended PHASE UX-03.
-// Independent of the sidebar's #statusDot/#statusText (untouched); reads only
-// localStorage + API_URL + _topbarSyncState, never blocks, never fetches.
-// This is the ONLY function that writes to #topbarLastSync.
+// PHASE 12.6B §14/§15 — Adaptive TopBar sync status (never hidden).
+// Previously #topbarLastSync lived inside .topbar-meta, which mobile's
+// `display:none` rule hid ENTIRELY (see css/responsive.css) — the exact
+// bug this phase closes. The fix is NOT to keep forcing it visible with
+// one long string; it's to render THREE ready-made text variants (full /
+// compact / chip) into three sibling spans every time state changes, and
+// let CSS (see .tls-full/.tls-compact/.tls-chip media queries in
+// css/components.css) pick exactly one per breakpoint. No resize
+// listener, no layout thrash — plain CSS `display` toggling.
+// This is the ONLY function that writes to #topbarLastSync's children.
 function updateTopbarSyncMeta(){
   var dot=document.getElementById('topbarConnDot'),tx=document.getElementById('topbarConnText');
   if(dot&&tx){
     if(API_URL){dot.classList.add('connected');dot.classList.remove('error');tx.textContent='متصل بـ Sheets';}
     else{dot.classList.remove('connected','error');tx.textContent='محلي فقط';}
   }
+  var fullEl=document.getElementById('tlsFull');
+  var compactEl=document.getElementById('tlsCompact');
+  var chipDotEl=document.getElementById('tlsChipDot');
+  var chipTextEl=document.getElementById('tlsChipText');
   var lsEl=document.getElementById('topbarLastSync');
-  if(lsEl){
-    lsEl.classList.remove('is-syncing','is-success','is-error','is-idle');
-    if(_topbarSyncState==='syncing'){
-      lsEl.textContent='🟡 جارٍ المزامنة...';
-      lsEl.classList.add('is-syncing');
-    }else if(_topbarSyncState==='success'){
-      lsEl.textContent='✅ تمت المزامنة';
-      lsEl.classList.add('is-success');
-    }else if(_topbarSyncState==='error'){
-      lsEl.textContent='⚠️ تعذر الاتصال — العمل بالبيانات المحلية';
-      lsEl.classList.add('is-error');
+  if(lsEl&&fullEl&&compactEl&&chipDotEl&&chipTextEl){
+    lsEl.classList.remove('is-syncing','is-success','is-error','is-idle','is-neversynced');
+    var state=_topbarSyncState;
+    var full,compact,chipText,chipClass,stateClass;
+    if(state==='syncing'){
+      full='🟡 جارٍ المزامنة...';compact='🟡 جارٍ...';chipText='جارٍ...';chipClass='tls-dot-syncing';stateClass='is-syncing';
+    }else if(state==='success'){
+      full='✅ تمت المزامنة';compact='✓ تمت المزامنة';chipText='الآن';chipClass='tls-dot-success';stateClass='is-success';
+    }else if(state==='error'){
+      full='⚠️ تعذر الاتصال — العمل بالبيانات المحلية';compact='🔴 محلي';chipText='محلي';chipClass='tls-dot-error';stateClass='is-error';
     }else{
       var ts=localStorage.getItem('lastSyncAt');
       var rel=formatLastSyncRelative(ts);
-      lsEl.textContent=rel?('🕒 آخر مزامنة '+rel):'📂 آخر مزامنة — من البيانات المحلية';
-      lsEl.classList.add('is-idle');
+      if(rel){
+        full='🕒 آخر مزامنة '+rel;compact='✓ '+rel;chipText=rel;chipClass='tls-dot-success';stateClass='is-idle';
+      }else{
+        full='📂 آخر مزامنة — من البيانات المحلية';compact='⚪ لم تتم';chipText='لم تتم';chipClass='tls-dot-neversynced';stateClass='is-neversynced';
+      }
     }
+    fullEl.textContent=full;
+    compactEl.textContent=compact;
+    chipTextEl.textContent=chipText;
+    chipDotEl.className='tls-chip-dot '+chipClass;
+    lsEl.classList.add(stateClass);
   }
   var nameEl=document.getElementById('topbarUserName');
   if(nameEl){
