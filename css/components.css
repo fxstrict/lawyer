@@ -276,6 +276,26 @@
 .topbar-lastsync.is-success{color:var(--success);font-weight:700;}
 .topbar-lastsync.is-error{color:var(--danger);font-weight:700;}
 .topbar-lastsync.is-idle{color:var(--muted);}
+.topbar-lastsync.is-neversynced{color:var(--muted);}
+
+/* ==================================================================
+   PHASE 12.6B §14/§15 — Adaptive sync-status TopBar (Desktop / Tablet /
+   Mobile). Sync status is never hidden at any breakpoint; only its
+   presentation adapts. Three ready-made variants are always rendered by
+   updateTopbarSyncMeta() (js/modules/settings.js) — CSS alone decides
+   which one is visible per breakpoint (see responsive.css for the
+   mobile/tablet media queries that flip these `display` rules).
+   ================================================================== */
+.topbar-lastsync{display:flex;align-items:center;}
+.tls-compact{display:none;}
+.tls-chip{display:none;align-items:center;gap:5px;background:var(--navy-md);border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:700;color:var(--slate);}
+.tls-chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--muted);}
+.tls-chip-dot.tls-dot-success{background:var(--success);}
+.tls-chip-dot.tls-dot-error{background:var(--danger);}
+.tls-chip-dot.tls-dot-neversynced{background:#B9C2CE;}
+.tls-chip-dot.tls-dot-syncing{background:var(--gold-dk);animation:tls-chip-spin 1s linear infinite;border:2px solid rgba(155,122,30,0.25);border-top-color:var(--gold-dk);width:9px;height:9px;background:transparent;}
+@keyframes tls-chip-spin{to{transform:rotate(360deg);}}
+@media(prefers-reduced-motion:reduce){.tls-chip-dot.tls-dot-syncing{animation:none;}}
 
 .session-item{padding:13px 15px;border-radius:var(--radius);background:#F8F5EF;border:1px solid rgba(201,168,76,0.15);margin-bottom:9px;display:flex;gap:13px;align-items:flex-start;transition:all var(--transition);}
 .session-item:hover{border-color:rgba(201,168,76,0.35);background:rgba(201,168,76,0.06);}
@@ -407,3 +427,148 @@
 .client-selector-item-name{font-size:13px;font-weight:600;color:#1A2640;}
 .client-selector-item-sub{font-size:11px;color:var(--muted);}
 .client-selector-empty{padding:14px;text-align:center;font-size:12px;color:var(--muted);}
+
+/* ================================================================
+   PHASE 12.6 / 12.6A / 12.6B — History Panel (Undo / Redo History)
+   Additive-only block appended to the end of this file. 12.6A
+   superseded the panel-position, tabs, and empty-state rules (right-side
+   RTL slide-in, multi-tab filter row, search box, TopBar badge, per-row
+   entity badge). 12.6B (this phase) restyles the row list into a
+   professional timeline (connector line, colored icon markers,
+   expandable Before/After detail, staggered fade-in) — see the block
+   below starting at .hp-body. hp-badge-* create/update/delete/restore
+   color mapping from 12.6 is UNCHANGED throughout.
+   ================================================================ */
+.history-panel-overlay{position:fixed;inset:0;background:rgba(20,25,40,0.35);z-index:900;opacity:0;pointer-events:none;transition:opacity var(--transition);}
+.history-panel-overlay.open{opacity:1;pointer-events:auto;}
+#historyPanel{position:fixed;top:0;bottom:0;right:0;width:380px;max-width:92vw;background:var(--navy-lt);box-shadow:var(--shadow);z-index:901;transform:translateX(100%);transition:transform var(--transition),opacity var(--transition);opacity:0;display:flex;flex-direction:column;}
+#historyPanel.open{transform:translateX(0);opacity:1;}
+.hp-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--navy-md);flex-shrink:0;}
+.hp-header-title{font-weight:800;font-size:15px;color:var(--steel);display:flex;align-items:center;gap:8px;}
+.hp-close-btn{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;line-height:1;padding:4px;border-radius:6px;}
+.hp-close-btn:hover{color:var(--danger);}
+.hp-close-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+/* TopBar button live-count badge (Phase 12.6A §7) */
+.hp-topbar-btn{position:relative;}
+.hp-topbar-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-inline-start:5px;background:var(--danger);color:#fff;font-size:10px;font-weight:800;border-radius:9px;vertical-align:middle;line-height:1;}
+
+/* Search box (Phase 12.6A §5) */
+.hp-search-wrap{position:relative;padding:10px 18px;border-bottom:1px solid var(--navy-md);flex-shrink:0;}
+.hp-search-icon{position:absolute;inset-inline-start:28px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.55;pointer-events:none;}
+.hp-search-input{width:100%;padding:8px 12px 8px 12px;padding-inline-start:30px;border:1px solid var(--navy-md);border-radius:8px;font-size:12.5px;background:var(--navy);color:var(--offwhite);font-family:inherit;}
+.hp-search-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,168,76,0.25);}
+
+.hp-limits{padding:6px 18px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--navy-md);flex-shrink:0;}
+
+/* Tabs — entity filters + Undo/Redo (Phase 12.6A §6) */
+.hp-tabs{display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid var(--navy-md);flex-shrink:0;padding:6px 8px;max-height:112px;overflow-y:auto;}
+.hp-tab{text-align:center;padding:6px 9px;font-size:11.5px;font-weight:700;color:var(--muted);cursor:pointer;border-radius:7px;border-bottom:2px solid transparent;white-space:nowrap;}
+.hp-tab:hover{background:var(--navy-md);}
+.hp-tab.active{color:var(--gold-dk);background:var(--navy-md);border-bottom-color:var(--gold);}
+.hp-tab:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+.hp-tab-sep{margin-inline-start:8px;border-inline-start:1px solid var(--navy-md);padding-inline-start:9px;}
+.hp-tab-count{display:inline-block;background:var(--navy-md);border-radius:10px;padding:1px 7px;font-size:10.5px;margin-inline-start:4px;}
+.hp-tab.active .hp-tab-count{background:var(--navy-lt);}
+
+.hp-body{flex:1;overflow-y:auto;padding:8px 10px;}
+
+/* ================================================================
+   PHASE 12.6B — Professional Timeline (§5–§10)
+   New palette for the icon marker per §6 (Create/Update/Delete/Restore
+   keep their existing hp-badge-* colors above; Bulk/Undo-list/Redo-list
+   add three more, declared locally here rather than in variables.css,
+   which this phase does not touch).
+   ================================================================ */
+:root{
+  --hp-purple:#6C5CE7;--hp-indigo:#4A5FC1;--hp-teal:#0F9B8E;
+}
+
+.hp-list{display:block;position:relative;padding-inline-start:6px;}
+/* Connector line — one continuous line behind every marker circle,
+   drawn once on the list container rather than per-row, so grouping/
+   filtering never leaves a broken segment. */
+.hp-list:not([data-empty="1"])::before{
+  content:'';position:absolute;top:6px;bottom:6px;inset-inline-start:23px;
+  width:2px;background:var(--navy-md);
+}
+
+.hp-row{display:flex;align-items:flex-start;gap:10px;padding:9px 6px 11px;border-radius:10px;margin-bottom:2px;position:relative;transition:background var(--transition),box-shadow var(--transition),transform var(--transition);}
+.hp-row:hover{background:var(--navy-md);box-shadow:var(--shadow-sm);transform:translateY(-1px);}
+
+/* Staggered fade-in for newly-created rows only (historypanel-ui.js sets
+   --hp-row-delay per row). No bounce — ease-out only, per §10. */
+.hp-row.hp-row-enter{animation:hp-row-fade-in .32s ease-out both;animation-delay:var(--hp-row-delay,0ms);}
+@keyframes hp-row-fade-in{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+@media(prefers-reduced-motion:reduce){.hp-row.hp-row-enter{animation:none;}}
+
+.hp-row-marker{position:relative;flex-shrink:0;width:34px;display:flex;justify-content:center;padding-top:1px;}
+.hp-marker-dot{position:relative;z-index:1;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;background:var(--muted);box-shadow:0 0 0 3px var(--navy-lt);}
+.hp-marker-create{background:var(--success);}
+.hp-marker-update{background:var(--info);}
+.hp-marker-delete{background:var(--danger);}
+.hp-marker-restore{background:var(--warning);}
+.hp-marker-bulk{background:var(--hp-purple);}
+
+/* Undo/Redo list accent — a thin inline-start rule on the content
+   column (indigo for pending-undo entries, teal for pending-redo
+   entries), independent of the marker's action-type color above. */
+.hp-row-content{min-width:0;flex:1;border-inline-start:3px solid transparent;padding-inline-start:9px;}
+.hp-list-undo .hp-row-content{border-inline-start-color:var(--hp-indigo);}
+.hp-list-redo .hp-row-content{border-inline-start-color:var(--hp-teal);}
+
+.hp-row-top{display:flex;align-items:center;gap:6px;margin-bottom:3px;}
+.hp-badge{font-size:9px;font-weight:800;letter-spacing:.4px;padding:3px 7px;border-radius:6px;color:#fff;flex-shrink:0;}
+.hp-badge-create{background:var(--success);}
+.hp-badge-update{background:var(--info);}
+.hp-badge-delete{background:var(--danger);}
+.hp-badge-restore{background:var(--warning);}
+.hp-entity-badge{font-size:10px;color:var(--muted);background:var(--navy-md);border-radius:6px;padding:1px 6px;flex-shrink:0;}
+.hp-row-time{font-size:10.5px;color:var(--muted);margin-inline-start:auto;white-space:nowrap;}
+.hp-row-title{font-size:12.5px;font-weight:600;color:#1A2640;line-height:1.5;overflow-wrap:anywhere;}
+
+.hp-row-actions{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.hp-expand-btn{background:none;border:none;padding:0;font-size:11px;font-weight:700;color:var(--gold-dk);cursor:pointer;}
+.hp-expand-btn:hover{text-decoration:underline;}
+.hp-expand-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.hp-jump-btn{flex-shrink:0;white-space:nowrap;margin-inline-start:auto;}
+.hp-jump-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+/* Expandable "عرض التفاصيل" detail panel (§8) — Before -> After / bulk
+   member list. Hidden via the [hidden] attribute (no layout cost while
+   closed); historypanel-ui.js fills it in lazily on first expand. */
+.hp-details{margin-top:8px;padding:10px 11px;background:var(--navy);border-radius:8px;border:1px solid var(--navy-md);font-size:11.5px;}
+.hp-details-inner{display:flex;flex-direction:column;gap:8px;}
+.hp-detail-meta{display:flex;flex-direction:column;gap:3px;}
+.hp-detail-meta-row{display:flex;justify-content:space-between;gap:10px;color:var(--offwhite);}
+.hp-detail-meta-key{color:var(--muted);font-weight:700;}
+.hp-details-section-title{font-weight:800;color:var(--steel);font-size:11px;margin-top:2px;}
+.hp-details-empty-note{color:var(--muted);font-style:italic;}
+.hp-detail-fields{display:flex;flex-direction:column;gap:3px;}
+.hp-detail-field-row{display:flex;justify-content:space-between;gap:10px;}
+.hp-detail-field-key{color:var(--muted);}
+.hp-detail-field-val{color:var(--offwhite);font-weight:600;overflow-wrap:anywhere;text-align:end;}
+.hp-detail-diff{display:flex;flex-direction:column;gap:5px;}
+.hp-diff-row{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:6px;}
+.hp-diff-field{color:var(--muted);font-weight:700;}
+.hp-diff-before{color:var(--danger);text-decoration:line-through;overflow-wrap:anywhere;}
+.hp-diff-arrow{color:var(--muted);}
+.hp-diff-after{color:var(--success);font-weight:700;overflow-wrap:anywhere;}
+.hp-detail-members{display:flex;flex-direction:column;gap:3px;max-height:160px;overflow-y:auto;}
+.hp-detail-member{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed var(--navy-md);}
+.hp-detail-member-label{color:var(--offwhite);}
+.hp-detail-member-time{color:var(--muted);font-size:10.5px;flex-shrink:0;}
+
+.hp-empty{text-align:center;padding:50px 20px;color:var(--muted);}
+.hp-empty-icon{font-size:34px;margin-bottom:10px;opacity:.5;}
+.hp-empty-illustration{margin-bottom:12px;opacity:.55;color:var(--gold-dk);}
+.hp-empty-title{font-weight:700;color:var(--steel);margin-bottom:4px;font-size:13px;}
+.hp-empty-sub{font-size:11.5px;line-height:1.6;}
+
+/* Search clear (×) button — §12 */
+.hp-search-clear{position:absolute;inset-inline-end:26px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:3px;line-height:1;border-radius:50%;}
+.hp-search-clear:hover{color:var(--danger);background:var(--navy-md);}
+.hp-search-clear:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+@media (prefers-reduced-motion:reduce){#historyPanel,.history-panel-overlay{transition:none;}.hp-row{transition:none;}}
+@media (max-width:640px){#historyPanel{width:100%;max-width:100%;}.hp-tabs{max-height:88px;}}

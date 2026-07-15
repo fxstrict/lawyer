@@ -1,3 +1,11 @@
+/* PHASE 12.6B §14 — Tablet tier: compact sync text ("✓ تمت المزامنة"),
+   full desktop text hidden. Deliberately BELOW the mobile breakpoint in
+   the cascade so the mobile rule below still wins under 769px. */
+@media(max-width:1024px) and (min-width:769px){
+  .tls-full{display:none;}
+  .tls-compact{display:inline;}
+}
+
 @media(max-width:768px){
   .sidebar{transform:translateX(100%);}
   .sidebar.open{transform:translateX(0);}
@@ -5,7 +13,20 @@
   .main{margin-right:0;}.burger{display:flex;}
   .page{padding:12px;}.topbar{padding:11px 14px;}.topbar-title{font-size:15px;}
   .topbar-actions .btn-ghost{display:none;}
-  .topbar-meta{display:none;}
+  /* PHASE 12.6A: the History Panel trigger must stay reachable on
+     mobile (§13 Responsive) — narrow exception to the rule above,
+     nothing else in .topbar-actions .btn-ghost is affected. */
+  .topbar-actions .btn-ghost.hp-topbar-btn{display:inline-flex;padding:6px 8px;}
+  /* PHASE 12.6B §14 — FIX: this used to hide .topbar-meta ENTIRELY,
+     silently taking #topbarLastSync with it (the exact "آخر مزامنة
+     يختفى على الموبايل" bug this phase closes). Sync status must be
+     visible on every screen size — adapt it, don't hide it. Only the
+     user-name and Sheets-connection-text children are dropped on
+     mobile; the sync chip stays and switches to its compact form. */
+  .topbar-meta{display:flex;align-items:center;gap:6px;}
+  .topbar-user,.topbar-conn{display:none;}
+  .tls-full,.tls-compact{display:none;}
+  .tls-chip{display:inline-flex;}
   .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
   .stat-num{font-size:24px;}.stat-icon{font-size:20px;}.stat-card{padding:13px;}
   .dashboard-grid{grid-template-columns:1fr;}
@@ -49,4 +70,13 @@
   .dashboard-welcome{padding:32px 18px;}
   .dashboard-welcome .icon{font-size:38px;}
   .dashboard-welcome h2{font-size:16px;}
+  /* PHASE 12.6B §13 — History Panel tabs on mobile: single-line
+     horizontal scroll, never wrap/break. Desktop/tablet keep the
+     existing flex-wrap behavior in components.css untouched. */
+  .hp-tabs{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;max-height:none;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+  .hp-tab{flex-shrink:0;}
+  /* PHASE 12.6B §16 — verified down to 320px: row content must keep
+     shrinking rather than push the jump/expand buttons off-panel. */
+  .hp-row-actions{flex-wrap:wrap;}
+  .hp-row-top{flex-wrap:wrap;row-gap:3px;}
 }
