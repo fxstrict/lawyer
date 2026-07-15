@@ -454,6 +454,15 @@ function renderCases() {
     tb.innerHTML = '';
     ml.innerHTML = '';
     em.style.display = '';
+    // HOTFIX (workflow correction): a case requires an existing client
+    // (see #clientSelectorList in the case form) — guide the user to add
+    // a client first when none exist yet.
+    var caseStepClient = document.getElementById('casesEmptyStepClient');
+    var caseStepCase = document.getElementById('casesEmptyStepCase');
+    if (caseStepClient && caseStepCase) {
+      if (!data.clients.length) { caseStepClient.style.display = ''; caseStepCase.style.display = 'none'; }
+      else { caseStepClient.style.display = 'none'; caseStepCase.style.display = ''; }
+    }
     return;
   }
   em.style.display = 'none';
