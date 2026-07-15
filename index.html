@@ -187,9 +187,14 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
     <div class="topbar-meta" id="topbarMeta">
       <span class="topbar-user" id="topbarUserName" style="display:none;"></span>
       <span class="topbar-conn"><span class="dot" id="topbarConnDot"></span><span id="topbarConnText">محلي</span></span>
-      <span class="topbar-lastsync" id="topbarLastSync"></span>
+      <span class="topbar-lastsync" id="topbarLastSync" role="status" aria-live="polite">
+        <span class="tls-full" id="tlsFull"></span>
+        <span class="tls-compact" id="tlsCompact"></span>
+        <span class="tls-chip" id="tlsChip"><span class="tls-chip-dot" id="tlsChipDot" aria-hidden="true"></span><span class="tls-chip-text" id="tlsChipText"></span></span>
+      </span>
     </div>
     <span class="sync-indicator" id="syncIndicator"><span class="sync-dot"></span><span id="syncIndicatorText">جارٍ المزامنة…</span></span>
+    <button class="btn btn-ghost btn-sm hp-topbar-btn" id="historyPanelBtn" onclick="toggleHistoryPanel()" title="سجل العمليات" aria-haspopup="dialog">&#128337; السجل<span class="hp-topbar-badge" id="hpTopbarBadge" style="display:none;">0</span></button>
     <button class="btn btn-ghost btn-sm" onclick="refreshAll()">&#8635; تحديث</button>
     <button class="btn btn-primary btn-sm" id="topbarAction" onclick="openAddModal()" style="display:none;">&#65291; إضافة</button>
   </div>
@@ -750,6 +755,8 @@ style="color:var(--muted);font-size:12px;margin-top:4px;"> جارٍ تحميل
 <script src="js/core/LocalStorageAdapter.js"></script>
 <script src="js/core/DatabaseService.js"></script>
 <script src="js/core/Repository.js"></script>
+<script src="js/core/UndoManager.js"></script>
+<script src="js/core/UndoReconciler.js"></script>
 <script src="js/repositories/CasesRepository.js"></script>
 <script src="js/repositories/ClientsRepository.js"></script>
 <script src="js/repositories/ChildrenRepository.js"></script>
@@ -911,9 +918,47 @@ window.addEventListener('DOMContentLoaded',function(){
 
 <div id="printArea"></div>
 
+<!-- PHASE 12.6A — History Panel markup (completion pass: search, entity
+     tabs, live badge, right-side RTL slide-in, incremental rendering
+     handled in js/modules/historypanel-ui.js). Still additive-only —
+     the merged-feed aggregation core (js/core/HistoryPanel.js) is not
+     modified by this phase. -->
+<div class="history-panel-overlay" id="historyPanelOverlay"></div>
+<div id="historyPanel" role="dialog" aria-modal="true" aria-labelledby="hpHeaderTitle" aria-hidden="true">
+  <div class="hp-header">
+    <div class="hp-header-title" id="hpHeaderTitle">&#128337; سجل العمليات</div>
+    <button class="hp-close-btn" id="hpCloseBtn" aria-label="إغلاق سجل العمليات">&#10005;</button>
+  </div>
+  <div class="hp-search-wrap">
+    <span class="hp-search-icon" aria-hidden="true">&#128269;</span>
+    <input type="text" id="hpSearchInput" class="hp-search-input" placeholder="بحث..." aria-label="بحث فى سجل العمليات" autocomplete="off">
+    <button type="button" class="hp-search-clear" id="hpSearchClear" aria-label="مسح البحث" style="display:none;">&#10005;</button>
+  </div>
+  <div class="hp-limits" id="hpLimits">السجل — / —</div>
+  <div class="hp-tabs" id="hpTabs" role="tablist" aria-label="تصفية سجل العمليات">
+    <div class="hp-tab active" role="tab" aria-selected="true" tabindex="0" data-hp-filter="all">الكل</div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="cases">القضايا</div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="clients">الموكلون</div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="sessions">الجلسات</div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="children">الأطفال</div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="fees">الأتعاب</div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="tasks">المهام</div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="documents">المستندات</div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="library">المكتبة</div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="templates">الصيغ</div>
+    <div class="hp-tab hp-tab-sep" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="undo">Undo <span class="hp-tab-count" id="hpUndoCount">0</span></div>
+    <div class="hp-tab" role="tab" aria-selected="false" tabindex="-1" data-hp-filter="redo">Redo <span class="hp-tab-count" id="hpRedoCount">0</span></div>
+  </div>
+  <div class="hp-body">
+    <div class="hp-list active" id="hpList" aria-live="polite"></div>
+  </div>
+</div>
+
+<script src="js/core/HistoryPanel.js"></script>
 <script src="js/modules/clients.js"></script>
 <script src="js/modules/fees.js"></script>
 <script src="js/modules/library.js"></script>
 <script src="js/modules/templates.js"></script>
+<script src="js/modules/historypanel-ui.js"></script>
 </body>
 </html>
